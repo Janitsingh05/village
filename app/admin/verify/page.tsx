@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import Icon from '@/components/Icon';
 import { confirmOtp, getPendingPhone, startPhoneSignIn, OTP_LENGTH } from '@/lib/auth';
-import { isFirebaseConfigured } from '@/lib/firebase';
 import { useI18n } from '@/lib/i18n';
 import { maskPhone } from '@/lib/format';
 
@@ -158,11 +157,6 @@ export default function AdminVerifyPage() {
         </button>
       </form>
 
-      {!isFirebaseConfigured && (
-        <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-center text-xs text-amber-800">
-          {t('admin.otpDemoHint')}
-        </p>
-      )}
     </main>
   );
 }

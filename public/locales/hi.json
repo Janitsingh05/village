@@ -148,9 +148,6 @@
     "signIn": "लॉगिन करें",
     "signingIn": "लॉगिन हो रहा है…",
     "badCredentials": "ईमेल या पासवर्ड ग़लत है।",
-    "demoCredentials": "डेमो मोड में नीचे दिया गया ईमेल/पासवर्ड इस्तेमाल करें।",
-    "demoTitle": "डेमो मोड",
-    "demoBody": "Firebase keys नहीं लगी हैं, इसलिए डेटा सिर्फ़ इसी ब्राउज़र में है। लॉगिन करें:",
     "backToPublic": "← सार्वजनिक पेज पर वापस",
     "backToDashboard": "← डैशबोर्ड",
     "statTotal": "कुल शिकायतें",
@@ -193,7 +190,6 @@
     "otpResend": "OTP पुनः भेजें",
     "otpResendIn": "{s} सेकंड में पुनः भेजें",
     "otpWrong": "OTP ग़लत है, दोबारा कोशिश करें",
-    "otpDemoHint": "डेमो मोड — कोई भी 4 अंक चलेंगे",
     "overview": "डैशबोर्ड अवलोकन",
     "periodMonth": "इस माह",
     "periodWeek": "इस सप्ताह",
@@ -291,8 +287,6 @@
     "subtitle": "लाइव करने से पहले ये सब हरे होने चाहिए",
     "recheck": "दोबारा जाँचें",
     "checking": "जाँच हो रही है…",
-    "firebase": "Firebase कॉन्फ़िगर है",
-    "firebaseFix": ".env.local (या Vercel की Environment Variables) में NEXT_PUBLIC_FIREBASE_* भरें।",
     "firestore": "Firestore से जुड़ाव",
     "firestoreFix": "Firestore चालू करें और rules deploy करें: firebase deploy --only firestore:rules,storage",
     "villageDoc": "गाँव का रिकॉर्ड मौजूद है",
@@ -301,8 +295,8 @@
     "adminLinkFix": "उसी मोबाइल नंबर से लॉगिन करें जो गाँव के रिकॉर्ड में है।",
     "storage": "फ़ोटो स्टोरेज कॉन्फ़िगर है",
     "storageFix": "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET भरें और Storage चालू करें।",
-    "demoWarn": "डेमो मोड चालू है — डेटा सिर्फ़ इसी ब्राउज़र में रहेगा। असली पायलट के लिए Firebase ज़रूरी है।",
     "allGood": "सब ठीक है — पायलट शुरू किया जा सकता है।",
-    "villageIdLabel": "सक्रिय गाँव आईडी"
+    "villageIdLabel": "सक्रिय गाँव आईडी",
+    "projectLabel": "Firebase प्रोजेक्ट"
   }
 }

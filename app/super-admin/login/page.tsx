@@ -5,9 +5,7 @@ import { useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import SystemArt from '@/components/SystemArt';
 import Logo from '@/components/Logo';
-import { signIn, startPhoneSignIn, confirmOtp, demoCredentials, OTP_LENGTH } from '@/lib/auth';
-import { markDemoSuperAdmin } from '@/lib/roles';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { signIn, startPhoneSignIn, confirmOtp, OTP_LENGTH } from '@/lib/auth';
 import { useI18n } from '@/lib/i18n';
 
 export default function SuperAdminLoginPage() {
@@ -30,14 +28,12 @@ export default function SuperAdminLoginPage() {
       await fn();
       onOk();
     } catch (err) {
-      const c = err instanceof Error ? err.message : '';
-      setError(c === 'DEMO_CREDENTIALS' ? t('admin.demoCredentials') : t('admin.badCredentials'));
+      setError(t('admin.badCredentials'));
       setBusy(false);
     }
   }
 
   function enterSuperAdmin() {
-    markDemoSuperAdmin(true);
     router.replace('/super-admin/villages');
   }
 
@@ -137,10 +133,7 @@ export default function SuperAdminLoginPage() {
           ) : (
             <button
               onClick={() =>
-                run(async () => {
-                  await confirmOtp(code);
-                  markDemoSuperAdmin(true);
-                }, enterSuperAdmin)
+                run(() => confirmOtp(code), enterSuperAdmin)
               }
               disabled={code.length !== OTP_LENGTH || busy}
               className="btn-primary"
@@ -185,10 +178,7 @@ export default function SuperAdminLoginPage() {
 
           <button
             onClick={() =>
-              run(async () => {
-                await signIn(email, password);
-                markDemoSuperAdmin(true);
-              }, enterSuperAdmin)
+              run(() => signIn(email, password), enterSuperAdmin)
             }
             disabled={busy}
             className="btn-primary"
@@ -198,12 +188,6 @@ export default function SuperAdminLoginPage() {
         </div>
       )}
 
-      {!isFirebaseConfigured && (
-        <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-center text-xs text-amber-800">
-          {t('admin.demoTitle')} — {demoCredentials.email} / {demoCredentials.password} ·{' '}
-          {t('admin.otpDemoHint')}
-        </p>
-      )}
     </main>
   );
 }

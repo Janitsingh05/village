@@ -6,8 +6,7 @@ import { useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import VillageArt from '@/components/VillageArt';
 import Logo from '@/components/Logo';
-import { signIn, startPhoneSignIn, demoCredentials } from '@/lib/auth';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { signIn, startPhoneSignIn } from '@/lib/auth';
 import { useI18n } from '@/lib/i18n';
 
 export default function AdminLoginPage() {
@@ -42,8 +41,7 @@ export default function AdminLoginPage() {
       await signIn(email, password);
       router.replace('/admin/dashboard');
     } catch (err) {
-      const code = err instanceof Error ? err.message : '';
-      setError(code === 'DEMO_CREDENTIALS' ? t('admin.demoCredentials') : t('admin.badCredentials'));
+      setError(t('admin.badCredentials'));
       setBusy(false);
     }
   }
@@ -151,16 +149,6 @@ export default function AdminLoginPage() {
         </form>
       )}
 
-      {!isFirebaseConfigured && (
-        <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-bold">{t('admin.demoTitle')}</p>
-          <p className="mt-1">{t('admin.demoBody')}</p>
-          <p className="mt-2 font-mono text-xs">
-            {demoCredentials.email} / {demoCredentials.password}
-          </p>
-          <p className="mt-1 text-xs">{t('admin.otpDemoHint')}</p>
-        </div>
-      )}
 
       <Link href="/" className="mt-6 block text-center text-sm text-slate-500">
         {t('admin.backToPublic')}

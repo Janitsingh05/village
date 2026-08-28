@@ -3,23 +3,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { watchSession, type AdminSession } from '@/lib/auth';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { projectId } from '@/lib/firebase';
 import { getVillage } from '@/lib/villages';
 import { activeVillageId } from '@/lib/tenant';
 import { useI18n } from '@/lib/i18n';
 
-type State = 'pass' | 'fail' | 'warn';
-
 interface Check {
   key: string;
-  state: State;
-  fixKey?: string;
+  pass: boolean;
+  fixKey: string;
 }
 
 /**
  * Runtime configuration doctor. Every check actually probes rather than
  * assuming — a half-configured deployment otherwise fails silently, which is
- * the worst possible way to discover it during a pilot.
+ * the worst possible way to discover it mid-pilot.
  */
 export default function SetupPage() {
   const { t } = useI18n();
@@ -33,18 +31,6 @@ export default function SetupPage() {
     setChecks(null);
     const id = activeVillageId();
     setVillageId(id);
-    const out: Check[] = [];
-
-    out.push({
-      key: 'setup.firebase',
-      state: isFirebaseConfigured ? 'pass' : 'fail',
-      fixKey: 'setup.firebaseFix',
-    });
-
-    if (!isFirebaseConfigured) {
-      setChecks(out);
-      return;
-    }
 
     let village = null;
     let reachable = true;
@@ -54,38 +40,27 @@ export default function SetupPage() {
       reachable = false;
     }
 
-    out.push({
-      key: 'setup.firestore',
-      state: reachable ? 'pass' : 'fail',
-      fixKey: 'setup.firestoreFix',
-    });
-    out.push({
-      key: 'setup.villageDoc',
-      state: village ? 'pass' : 'fail',
-      fixKey: 'setup.villageDocFix',
-    });
-    out.push({
-      key: 'setup.adminLink',
-      state:
-        village && session && village.adminUserIds.includes(session.uid)
-          ? 'pass'
-          : 'fail',
-      fixKey: 'setup.adminLinkFix',
-    });
-    out.push({
-      key: 'setup.storage',
-      state: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ? 'pass' : 'fail',
-      fixKey: 'setup.storageFix',
-    });
-
-    setChecks(out);
+    setChecks([
+      { key: 'setup.firestore', pass: reachable, fixKey: 'setup.firestoreFix' },
+      { key: 'setup.villageDoc', pass: Boolean(village), fixKey: 'setup.villageDocFix' },
+      {
+        key: 'setup.adminLink',
+        pass: Boolean(village && session && village.adminUserIds.includes(session.uid)),
+        fixKey: 'setup.adminLinkFix',
+      },
+      {
+        key: 'setup.storage',
+        pass: Boolean(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+        fixKey: 'setup.storageFix',
+      },
+    ]);
   }, [session]);
 
   useEffect(() => {
     run();
   }, [run]);
 
-  const allPass = checks?.every((c) => c.state === 'pass');
+  const allPass = checks?.every((c) => c.pass);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-4">
@@ -102,14 +77,13 @@ export default function SetupPage() {
         </button>
       </div>
 
-      {!isFirebaseConfigured && (
-        <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {t('setup.demoWarn')}
-        </p>
-      )}
-
-      <p className="mb-4 text-xs text-slate-400">
-        {t('setup.villageIdLabel')}: <span className="font-mono">{villageId}</span>
+      <p className="mb-4 space-x-3 text-xs text-slate-400">
+        <span>
+          {t('setup.projectLabel')}: <span className="font-mono">{projectId}</span>
+        </span>
+        <span>
+          {t('setup.villageIdLabel')}: <span className="font-mono">{villageId}</span>
+        </span>
       </p>
 
       {checks === null ? (
@@ -121,22 +95,18 @@ export default function SetupPage() {
               <span
                 className={
                   'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-white ' +
-                  (c.state === 'pass'
-                    ? 'bg-brand-600'
-                    : c.state === 'warn'
-                      ? 'bg-amber-500'
-                      : 'bg-red-500')
+                  (c.pass ? 'bg-brand-600' : 'bg-red-500')
                 }
               >
                 <Icon
-                  name={c.state === 'pass' ? 'checkCircle' : 'plus'}
-                  className={'h-4 w-4 ' + (c.state === 'pass' ? '' : 'rotate-45')}
+                  name={c.pass ? 'checkCircle' : 'plus'}
+                  className={'h-4 w-4 ' + (c.pass ? '' : 'rotate-45')}
                   strokeWidth={2.6}
                 />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-900">{t(c.key)}</span>
-                {c.state !== 'pass' && c.fixKey && (
+                {!c.pass && (
                   <span className="mt-1 block break-words font-mono text-xs leading-relaxed text-slate-500">
                     {t(c.fixKey)}
                   </span>

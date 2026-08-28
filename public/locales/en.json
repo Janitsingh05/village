@@ -148,9 +148,6 @@
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "badCredentials": "That email or password is wrong.",
-    "demoCredentials": "In demo mode, use the email/password shown below.",
-    "demoTitle": "Demo mode",
-    "demoBody": "Firebase keys are not set, so data lives in this browser only. Sign in with:",
     "backToPublic": "← Back to the public page",
     "backToDashboard": "← Dashboard",
     "statTotal": "Total complaints",
@@ -193,7 +190,6 @@
     "otpResend": "Resend OTP",
     "otpResendIn": "Resend in {s}s",
     "otpWrong": "That OTP is wrong, please try again",
-    "otpDemoHint": "Demo mode — any 4 digits will do",
     "overview": "Dashboard overview",
     "periodMonth": "This month",
     "periodWeek": "This week",
@@ -291,8 +287,6 @@
     "subtitle": "These should all be green before you go live",
     "recheck": "Check again",
     "checking": "Checking…",
-    "firebase": "Firebase is configured",
-    "firebaseFix": "Fill the NEXT_PUBLIC_FIREBASE_* values in .env.local (or Vercel environment variables).",
     "firestore": "Firestore is reachable",
     "firestoreFix": "Enable Firestore and deploy rules: firebase deploy --only firestore:rules,storage",
     "villageDoc": "Village record exists",
@@ -301,8 +295,8 @@
     "adminLinkFix": "Sign in with the mobile number recorded on the village.",
     "storage": "Photo storage is configured",
     "storageFix": "Set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET and enable Storage.",
-    "demoWarn": "Demo mode is on — data stays in this browser only. A real pilot needs Firebase.",
     "allGood": "All good — you are ready to run the pilot.",
-    "villageIdLabel": "Active village id"
+    "villageIdLabel": "Active village id",
+    "projectLabel": "Firebase project"
   }
 }

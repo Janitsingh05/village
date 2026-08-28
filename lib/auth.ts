@@ -9,26 +9,15 @@ import {
   type ConfirmationResult,
   type User,
 } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from './firebase';
+import { auth } from './firebase';
 
 /**
- * Admins sign in by phone + OTP (as in the design), with email/password kept
- * as a fallback for anyone without the registered SIM to hand.
- *
- * With no Firebase keys present everything falls back to a local demo session
- * so the whole flow can be walked through offline.
+ * Admins sign in by phone + OTP, with email/password kept as a fallback for
+ * anyone without the registered SIM to hand.
  */
-const DEMO_KEY = 'gaonconnect:demoAdmin';
-// Firebase pushes sign-in changes through onAuthStateChanged; the demo path has
-// no such listener, so it broadcasts its own event. Without this the admin
-// layout never sees a fresh login and bounces straight back to the login page.
-export const SESSION_EVENT = 'gaonconnect:session';
 
-const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL || 'admin@gaon.local';
-const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD || 'gaon1234';
-
-/** Firebase always sends 6 digits; the demo path can use the shorter code. */
-export const OTP_LENGTH = isFirebaseConfigured ? 6 : 4;
+/** Firebase always sends a six-digit code. */
+export const OTP_LENGTH = 6;
 
 export interface AdminSession {
   email: string;
@@ -36,28 +25,22 @@ export interface AdminSession {
   uid: string;
 }
 
-function saveDemoSession(session: AdminSession) {
-  window.localStorage.setItem(DEMO_KEY, JSON.stringify(session));
-  window.dispatchEvent(new Event(SESSION_EVENT));
+function toSession(user: User, fallbackPhone = ''): AdminSession {
+  return {
+    email: user.email || '',
+    phone: user.phoneNumber || fallbackPhone,
+    uid: user.uid,
+  };
 }
 
-/* ------------------------------ email / password ------------------------------ */
+/* ---------------------------- email / password ---------------------------- */
 
 export async function signIn(email: string, password: string): Promise<AdminSession> {
-  if (!isFirebaseConfigured) {
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-      throw new Error('DEMO_CREDENTIALS');
-    }
-    const session = { email: DEMO_EMAIL, phone: '', uid: 'demo-admin' };
-    saveDemoSession(session);
-    return session;
-  }
-
   const cred = await signInWithEmailAndPassword(auth(), email.trim(), password);
-  return { email: cred.user.email || email, phone: cred.user.phoneNumber || '', uid: cred.user.uid };
+  return toSession(cred.user);
 }
 
-/* --------------------------------- phone OTP --------------------------------- */
+/* -------------------------------- phone OTP -------------------------------- */
 
 let pendingConfirmation: ConfirmationResult | null = null;
 let pendingPhone = '';
@@ -79,34 +62,40 @@ function getVerifier(): RecaptchaVerifier {
   return verifier;
 }
 
+/** Discard a spent verifier so a retry gets a fresh challenge. */
+function resetVerifier() {
+  try {
+    verifier?.clear();
+  } catch {
+    /* already gone */
+  }
+  verifier = null;
+}
+
 /** Step 1 — send the code. `phone` is 10 digits, India assumed. */
 export async function startPhoneSignIn(phone: string): Promise<void> {
   const digits = phone.replace(/\D/g, '').slice(-10);
   if (digits.length !== 10) throw new Error('BAD_PHONE');
   pendingPhone = digits;
 
-  if (!isFirebaseConfigured) return;
-  pendingConfirmation = await signInWithPhoneNumber(auth(), '+91' + digits, getVerifier());
+  try {
+    pendingConfirmation = await signInWithPhoneNumber(auth(), '+91' + digits, getVerifier());
+  } catch (e) {
+    // A failed attempt burns the reCAPTCHA token; without this a second try
+    // fails for a reason that has nothing to do with the phone number.
+    resetVerifier();
+    throw e;
+  }
 }
 
 /** Step 2 — check the code and open the session. */
 export async function confirmOtp(code: string): Promise<AdminSession> {
   const digits = code.replace(/\D/g, '');
   if (digits.length !== OTP_LENGTH) throw new Error('BAD_OTP');
-
-  if (!isFirebaseConfigured) {
-    const session = { email: DEMO_EMAIL, phone: pendingPhone, uid: 'demo-admin' };
-    saveDemoSession(session);
-    return session;
-  }
-
   if (!pendingConfirmation) throw new Error('NO_PENDING_OTP');
+
   const cred = await pendingConfirmation.confirm(digits);
-  return {
-    email: cred.user.email || '',
-    phone: cred.user.phoneNumber || pendingPhone,
-    uid: cred.user.uid,
-  };
+  return toSession(cred.user, pendingPhone);
 }
 
 export function getPendingPhone(): string {
@@ -117,41 +106,11 @@ export function getPendingPhone(): string {
 
 export async function signOut(): Promise<void> {
   pendingConfirmation = null;
-  if (!isFirebaseConfigured) {
-    window.localStorage.removeItem(DEMO_KEY);
-    window.dispatchEvent(new Event(SESSION_EVENT));
-    return;
-  }
+  resetVerifier();
   await fbSignOut(auth());
 }
 
 /** Fires immediately with the current session, then on every change. */
 export function watchSession(cb: (session: AdminSession | null) => void): () => void {
-  if (!isFirebaseConfigured) {
-    const push = () => {
-      try {
-        const raw = window.localStorage.getItem(DEMO_KEY);
-        cb(raw ? (JSON.parse(raw) as AdminSession) : null);
-      } catch {
-        cb(null);
-      }
-    };
-    push();
-    window.addEventListener(SESSION_EVENT, push);
-    window.addEventListener('storage', push); // other tabs
-    return () => {
-      window.removeEventListener(SESSION_EVENT, push);
-      window.removeEventListener('storage', push);
-    };
-  }
-
-  return onAuthStateChanged(auth(), (user: User | null) =>
-    cb(
-      user
-        ? { email: user.email || '', phone: user.phoneNumber || '', uid: user.uid }
-        : null
-    )
-  );
+  return onAuthStateChanged(auth(), (user: User | null) => cb(user ? toSession(user) : null));
 }
-
-export const demoCredentials = { email: DEMO_EMAIL, password: DEMO_PASSWORD };

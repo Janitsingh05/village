@@ -9,7 +9,6 @@ import Icon from '@/components/Icon';
 import { watchSession, type AdminSession } from '@/lib/auth';
 import { claimVillageForAdmin } from '@/lib/villages';
 import { setActiveVillage } from '@/lib/tenant';
-import { isFirebaseConfigured } from '@/lib/firebase';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 
@@ -57,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           // Signed in, but no village names this number. On a real backend that
           // means they cannot update anything, so say so rather than silently
           // showing them the default village.
-          setUnclaimed(isFirebaseConfigured && Boolean(session.phone));
+          setUnclaimed(Boolean(session.phone));
         }
       })
       .catch(() => alive && setUnclaimed(false));

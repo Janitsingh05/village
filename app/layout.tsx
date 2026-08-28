@@ -4,6 +4,7 @@ import { VILLAGE } from '@/lib/config';
 import { LanguageProvider } from '@/lib/i18n';
 import { VillageProvider } from '@/lib/village-context';
 import ServiceWorker from '@/components/ServiceWorker';
+import ConfigGate from '@/components/ConfigGate';
 
 export const metadata: Metadata = {
   title: 'GaonConnect · ' + VILLAGE.nameHi,
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="hi">
       <body className="font-sans">
         <LanguageProvider>
-          <VillageProvider>{children}</VillageProvider>
+          <ConfigGate>
+            <VillageProvider>{children}</VillageProvider>
+          </ConfigGate>
           <ServiceWorker />
         </LanguageProvider>
       </body>

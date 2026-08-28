@@ -13,10 +13,9 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, isFirebaseConfigured } from './firebase';
+import { db, storage } from './firebase';
 import { complaintRef } from './config';
 import { activeVillageId } from './tenant';
-import { demoStore } from './demoStore';
 import { compressPhoto } from './imageCompress';
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
 
@@ -73,7 +72,6 @@ async function uploadPhoto(
 
 /** Newest-first list of complaints for the village. */
 export async function listComplaints(villageId = activeVillageId()): Promise<Complaint[]> {
-  if (!isFirebaseConfigured) return demoStore.list();
   const snap = await getDocs(query(complaintsCol(villageId), orderBy('createdAt', 'desc')));
   return snap.docs.map((d) => fromDoc(d.id, d.data()));
 }
@@ -84,10 +82,6 @@ export function subscribeToComplaints(
   onError: (e: Error) => void,
   villageId = activeVillageId()
 ): () => void {
-  if (!isFirebaseConfigured) {
-    demoStore.list().then(onChange).catch((e) => onError(e as Error));
-    return () => {};
-  }
   return onSnapshot(
     query(complaintsCol(villageId), orderBy('createdAt', 'desc')),
     (snap) => onChange(snap.docs.map((d) => fromDoc(d.id, d.data()))),
@@ -96,7 +90,6 @@ export function subscribeToComplaints(
 }
 
 export async function getComplaint(id: string, villageId = activeVillageId()): Promise<Complaint | null> {
-  if (!isFirebaseConfigured) return demoStore.get(id);
   const snap = await getDoc(doc(complaintsCol(villageId), id));
   return snap.exists() ? fromDoc(snap.id, snap.data()) : null;
 }
@@ -109,8 +102,6 @@ export async function createComplaint(
   input: NewComplaintInput,
   villageId = activeVillageId()
 ): Promise<string> {
-  if (!isFirebaseConfigured) return demoStore.create(input);
-
   const docRef = doc(complaintsCol(villageId));
   const now = Date.now();
 
@@ -153,8 +144,6 @@ export async function updateComplaintStatus(
   proofFile: File | null,
   villageId = activeVillageId()
 ): Promise<void> {
-  if (!isFirebaseConfigured) return demoStore.updateStatus(id, status, note, proofFile);
-
   const docRef = doc(complaintsCol(villageId), id);
   const patch: Record<string, unknown> = {
     status,
@@ -226,7 +215,6 @@ export async function submitFeedback(
   verdict: 'still_open' | 'confirmed',
   villageId = activeVillageId()
 ): Promise<void> {
-  if (!isFirebaseConfigured) return demoStore.setFeedback(id, verdict);
   await updateDoc(doc(complaintsCol(villageId), id), {
     feedback: { verdict, at: Date.now() },
     updatedAt: serverTimestamp(),

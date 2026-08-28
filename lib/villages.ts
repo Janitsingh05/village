@@ -12,10 +12,8 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebase';
+import { db } from './firebase';
 import type { Village } from './types';
-
-const DEMO_KEY = 'gaonconnect:villages';
 
 function col() {
   return collection(db(), 'villages');
@@ -27,26 +25,7 @@ function toMillis(v: unknown): number {
   return Date.now();
 }
 
-function demoRead(): Village[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(DEMO_KEY);
-    return raw ? (JSON.parse(raw) as Village[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function demoWrite(rows: Village[]) {
-  try {
-    window.localStorage.setItem(DEMO_KEY, JSON.stringify(rows));
-  } catch {
-    /* disposable demo data */
-  }
-}
-
 export async function listVillages(): Promise<Village[]> {
-  if (!isFirebaseConfigured) return demoRead().sort((a, b) => b.createdAt - a.createdAt);
   const snap = await getDocs(query(col(), orderBy('createdAt', 'desc')));
   return snap.docs.map((d) => {
     const data = d.data();
@@ -121,11 +100,6 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
     createdAt: Date.now(),
   };
 
-  if (!isFirebaseConfigured) {
-    demoWrite([record, ...demoRead().filter((v) => v.id !== id)]);
-    return id;
-  }
-
   await setDoc(doc(col(), id), { ...record, createdAt: serverTimestamp() });
   return id;
 }
@@ -145,7 +119,6 @@ function fromDoc(id: string, data: Record<string, any>): Village {
 }
 
 export async function getVillage(id: string): Promise<Village | null> {
-  if (!isFirebaseConfigured) return demoRead().find((v) => v.id === id) || null;
   const snap = await getDoc(doc(col(), id));
   return snap.exists() ? fromDoc(snap.id, snap.data()) : null;
 }
@@ -167,16 +140,6 @@ export async function getVillage(id: string): Promise<Village | null> {
 export async function claimVillageForAdmin(uid: string, phone: string): Promise<string | null> {
   const digits = (phone || '').replace(/\D/g, '').slice(-10);
   if (!digits) return null;
-
-  if (!isFirebaseConfigured) {
-    const village = demoRead().find((v) => v.adminPhone === digits);
-    if (!village) return null;
-    if (!village.adminUserIds.includes(uid)) {
-      village.adminUserIds = [...village.adminUserIds, uid];
-      demoWrite(demoRead().map((v) => (v.id === village.id ? village : v)));
-    }
-    return village.id;
-  }
 
   const snap = await getDocs(query(col(), where('adminPhone', '==', digits)));
   if (snap.empty) return null;

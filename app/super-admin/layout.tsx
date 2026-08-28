@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import Logo from '@/components/Logo';
 import { signOut, watchSession, type AdminSession } from '@/lib/auth';
-import { isSuperAdmin, markDemoSuperAdmin } from '@/lib/roles';
+import { isSuperAdmin } from '@/lib/roles';
 import { useI18n } from '@/lib/i18n';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
@@ -50,7 +50,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           <LanguageToggle />
           <button
             onClick={async () => {
-              markDemoSuperAdmin(false);
               await signOut();
               router.replace('/super-admin/login');
             }}
