@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Photos are world-readable (they appear in the public feed) but tightly
+// bounded on write: images only, and small enough that a 3G upload finishes.
+// The client already compresses to ~350 KB; 5 MB is the hard ceiling.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /villages/{villageId}/complaints/{complaintId}/{fileName} {
+      allow read: if true;
+
+      allow write: if request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null;
+    }
+
+    // Announcement posters — only a signed-in admin can put one up.
+    match /villages/{villageId}/announcements/{announcementId}/{fileName} {
+      allow read: if true;
+      allow write, delete: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Nothing else in the bucket is writable from the client.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

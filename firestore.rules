@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// GaonConnect — Phase 1 rules.
+//
+// Model: complaints are PUBLIC to read (that transparency is the whole point),
+// citizens may CREATE but never modify, and only the village's own admins may
+// change status. Everything is nested under villages/{villageId} so a second
+// village can be added without touching these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // An admin of THIS village. adminUserIds[] lives on the village doc, so a
+    // Sarpanch can never touch another village's complaints.
+    function isVillageAdmin(villageId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/villages/$(villageId))
+        && request.auth.uid in get(/databases/$(database)/documents/villages/$(villageId)).data.adminUserIds;
+    }
+
+    // True when a write leaves every field except the listed ones untouched.
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
+    match /villages/{villageId} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin();
+
+      match /complaints/{complaintId} {
+        allow read: if true;
+
+        // Anyone (including anonymous citizens) may file, but only with a
+        // well-formed doc that starts at "pending" and is scoped to this village.
+        allow create: if request.resource.data.villageId == villageId
+          && request.resource.data.status == 'pending'
+          && request.resource.data.category is string
+          && request.resource.data.description is string
+          && request.resource.data.description.size() > 0
+          && request.resource.data.description.size() <= 1000
+          && request.resource.data.reportedBy.phone is string
+          && request.resource.data.reportedBy.phone.size() <= 15
+          && request.resource.data.resolutionPhotoUrl == null;
+
+        // Only the village's admins move a complaint along, and they may never
+        // rewrite what the citizen reported.
+        allow update: if isVillageAdmin(villageId)
+          && request.resource.data.villageId == resource.data.villageId
+          && request.resource.data.category == resource.data.category
+          && request.resource.data.description == resource.data.description
+          && request.resource.data.reportedBy == resource.data.reportedBy
+          && request.resource.data.status in ['pending', 'in_progress', 'resolved', 'closed'];
+
+        // Citizens confirm the fix (or say it is still broken). This is the one
+        // update an anonymous caller may make, and it may touch nothing else.
+        allow update: if onlyChanged(['feedback', 'updatedAt'])
+          && request.resource.data.feedback.verdict in ['still_open', 'confirmed'];
+
+        allow delete: if isVillageAdmin(villageId);
+      }
+
+      // Announcements: public to read, this village's admins to write.
+      match /announcements/{announcementId} {
+        allow read: if true;
+        allow create, update: if isVillageAdmin(villageId)
+          && request.resource.data.villageId == villageId
+          && request.resource.data.kind in ['general', 'urgent']
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 100
+          && request.resource.data.body.size() <= 500;
+        allow delete: if isVillageAdmin(villageId);
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+  }
+}

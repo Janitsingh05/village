@@ -1,0 +1,25 @@
+{
+  "name": "GaonConnect — गाँव की शिकायत",
+  "short_name": "GaonConnect",
+  "description": "गाँव या सोसाइटी की समस्या फ़ोटो के साथ दर्ज करें और समाधान की स्थिति देखें।",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#15803d",
+  "lang": "hi",
+  "categories": ["government", "utilities", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "समस्या दर्ज करें",
+      "short_name": "शिकायत",
+      "url": "/report"
+    }
+  ]
+}
