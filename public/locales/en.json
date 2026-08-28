@@ -98,7 +98,9 @@
     "wardOption": "Choose ward / area",
     "wardOptionSub": "Pick your ward from the list",
     "submitNew": "Submit complaint",
-    "footerNote": "Your details are kept safe and used for official purposes only."
+    "footerNote": "Your details are kept safe and used for official purposes only.",
+    "photoTooLarge": "That photo is too large — please pick another.",
+    "photoFailed": "Could not attach the photo, please try again."
   },
   "photo": {
     "camera": "Camera",

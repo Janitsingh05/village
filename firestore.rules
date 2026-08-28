@@ -60,7 +60,10 @@ service cloud.firestore {
           && request.resource.data.description.size() <= 1000
           && request.resource.data.reportedBy.phone is string
           && request.resource.data.reportedBy.phone.size() <= 15
-          && request.resource.data.resolutionPhotoUrl == null;
+          && request.resource.data.resolutionPhotoUrl == null
+          // Inline thumbnail only; the full image is its own document.
+          && (request.resource.data.photoUrl == null
+              || request.resource.data.photoUrl.size() < 60000);
 
         // Only the village's admins move a complaint along, and they may never
         // rewrite what the citizen reported.
@@ -77,6 +80,17 @@ service cloud.firestore {
           && request.resource.data.feedback.verdict in ['still_open', 'confirmed'];
 
         allow delete: if isVillageAdmin(villageId);
+
+        // Full-size images live here, one document each, because Cloud Storage
+        // needs a billing account and a village pilot should not. The size cap
+        // keeps a write from failing against Firestore's 1 MiB document limit.
+        match /media/{kind} {
+          allow read: if true;
+          allow create: if request.resource.data.data is string
+            && request.resource.data.data.size() < 900000
+            && (kind == 'photo' || isVillageAdmin(villageId));
+          allow update, delete: if isVillageAdmin(villageId);
+        }
       }
 
       // Announcements: public to read, this village's admins to write.
@@ -87,7 +101,11 @@ service cloud.firestore {
           && request.resource.data.kind in ['general', 'urgent']
           && request.resource.data.title.size() > 0
           && request.resource.data.title.size() <= 100
-          && request.resource.data.body.size() <= 500;
+          && request.resource.data.body.size() <= 500
+          // The poster thumbnail rides inline on this document.
+          && (!('photoUrl' in request.resource.data.keys())
+              || request.resource.data.photoUrl == null
+              || request.resource.data.photoUrl.size() < 60000);
         allow delete: if isVillageAdmin(villageId);
       }
     }

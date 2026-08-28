@@ -1,3 +1,7 @@
+// NOT IN USE. Cloud Storage requires a billing account, so photos are kept
+// in Firestore instead (see lib/imageCompress.ts). This file is here for the
+// day Storage is enabled — deploy it then with: firebase deploy --only storage
+
 rules_version = '2';
 
 // Photos are world-readable (they appear in the public feed) but tightly

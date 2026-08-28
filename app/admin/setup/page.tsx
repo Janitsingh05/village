@@ -48,11 +48,6 @@ export default function SetupPage() {
         pass: Boolean(village && session && village.adminUserIds.includes(session.uid)),
         fixKey: 'setup.adminLinkFix',
       },
-      {
-        key: 'setup.storage',
-        pass: Boolean(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
-        fixKey: 'setup.storageFix',
-      },
     ]);
   }, [session]);
 

@@ -8,7 +8,7 @@ import BottomNav from '@/components/BottomNav';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatusBadge, { STATUS_DOT } from '@/components/StatusBadge';
 import Icon from '@/components/Icon';
-import { getComplaint, submitFeedback } from '@/lib/complaints';
+import { getComplaint, getFullPhoto, submitFeedback } from '@/lib/complaints';
 import { categoryOf, STATUS_TIMELINE, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { dateTime, maskPhone } from '@/lib/format';
@@ -22,6 +22,10 @@ export default function ComplaintDetailPage() {
   const [complaint, setComplaint] = useState<Complaint | null | undefined>(undefined);
   const [justCreated, setJustCreated] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // The complaint carries only a thumbnail so the feed stays light; the full
+  // image is a separate document, fetched once this page is actually open.
+  const [fullPhoto, setFullPhoto] = useState<string | null>(null);
+  const [fullProof, setFullProof] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -38,6 +42,28 @@ export default function ComplaintDetailPage() {
       alive = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !complaint) return;
+    let alive = true;
+    if (complaint.photoUrl) {
+      getFullPhoto(id, 'photo')
+        .then((d) => alive && setFullPhoto(d))
+        .catch(() => {
+          /* the thumbnail stays on screen */
+        });
+    }
+    if (complaint.resolutionPhotoUrl) {
+      getFullPhoto(id, 'proof')
+        .then((d) => alive && setFullProof(d))
+        .catch(() => {
+          /* the thumbnail stays on screen */
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [id, complaint]);
 
   async function share() {
     const url = window.location.origin + '/complaint/' + id;
@@ -137,7 +163,7 @@ export default function ComplaintDetailPage() {
           {complaint.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={complaint.photoUrl}
+              src={fullPhoto || complaint.photoUrl}
               alt={catName}
               className="h-48 w-full rounded-2xl bg-slate-200 object-cover"
             />
@@ -211,7 +237,7 @@ export default function ComplaintDetailPage() {
             <div className="overflow-hidden rounded-2xl bg-white shadow-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={complaint.resolutionPhotoUrl}
+                src={fullProof || complaint.resolutionPhotoUrl}
                 alt={t('detail.proofHeading')}
                 className="w-full object-cover"
               />

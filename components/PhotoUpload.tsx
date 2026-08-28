@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Icon from './Icon';
-import { compressPhoto, readableSize } from '@/lib/imageCompress';
+import { preparePhoto, readableSize } from '@/lib/imageCompress';
 import { useI18n } from '@/lib/i18n';
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -31,12 +31,6 @@ export default function PhotoUpload({
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
   async function handleFile(file: File | undefined) {
     if (!file) return;
     setError(null);
@@ -48,19 +42,22 @@ export default function PhotoUpload({
 
     setBusy(true);
     try {
-      const original = file.size;
-      const compressed = await compressPhoto(file);
-      if (preview) URL.revokeObjectURL(preview);
-      setPreview(URL.createObjectURL(compressed));
-      setNote(readableSize(original) + ' → ' + readableSize(compressed.size));
-      onChange(compressed);
+      // Compress here so the wait happens while the rest of the form is being
+      // filled, and so an unusable image is rejected before submit.
+      const prepared = await preparePhoto(file);
+      setPreview(prepared.thumb);
+      setNote(readableSize(prepared.originalBytes) + ' → ' + readableSize(prepared.fullBytes));
+      onChange(file);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      setError(code === 'PHOTO_TOO_LARGE' ? t('report.photoTooLarge') : t('report.photoFailed'));
+      onChange(null);
     } finally {
       setBusy(false);
     }
   }
 
   function clear() {
-    if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
     setNote(null);
     onChange(null);

@@ -9,9 +9,8 @@ import {
   setDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from './firebase';
-import { compressPhoto } from './imageCompress';
+import { db } from './firebase';
+import { preparePhoto } from './imageCompress';
 import { activeVillageId } from './tenant';
 import type { Announcement, AnnouncementKind } from './types';
 
@@ -70,14 +69,9 @@ export async function createAnnouncement(
 
   if (input.photoFile) {
     try {
-      const compressed = await compressPhoto(input.photoFile);
-      const path =
-        'villages/' + villageId + '/announcements/' + docRef.id + '/poster-' + Date.now() + '.jpg';
-      const snap = await uploadBytes(storageRef(storage(), path), compressed, {
-        contentType: compressed.type || 'image/jpeg',
-        cacheControl: 'public,max-age=31536000',
-      });
-      photoUrl = await getDownloadURL(snap.ref);
+      // A notice board poster only ever needs to be legible in the feed, so the
+      // thumbnail is the whole story here — no second document.
+      photoUrl = (await preparePhoto(input.photoFile)).thumb;
     } catch {
       // The notice still goes out without its poster.
     }

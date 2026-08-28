@@ -12,11 +12,10 @@ import {
   arrayUnion,
   Timestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from './firebase';
+import { db } from './firebase';
 import { complaintRef } from './config';
 import { activeVillageId } from './tenant';
-import { compressPhoto } from './imageCompress';
+import { preparePhoto } from './imageCompress';
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
 
 // Every path here is scoped to villages/{villageId} so the data model is
@@ -55,19 +54,40 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
   };
 }
 
-async function uploadPhoto(
+/**
+ * Photos are split across two documents: the thumbnail rides along on the
+ * complaint so the feed renders without extra reads, and the full image lives
+ * in its own doc that is only fetched when someone opens the complaint. See
+ * lib/imageCompress.ts for why they are not in Cloud Storage.
+ */
+function mediaDoc(villageId: string, complaintId: string, kind: 'photo' | 'proof') {
+  return doc(complaintsCol(villageId), complaintId, 'media', kind);
+}
+
+/** Admin proof photo: same split, but an admin may patch the complaint. */
+async function storePhoto(
   villageId: string,
   complaintId: string,
   file: File,
-  kind: 'report' | 'proof'
-) {
-  const compressed = await compressPhoto(file);
-  const path = 'villages/' + villageId + '/complaints/' + complaintId + '/' + kind + '-' + Date.now() + '.jpg';
-  const snap = await uploadBytes(ref(storage(), path), compressed, {
-    contentType: compressed.type || 'image/jpeg',
-    cacheControl: 'public,max-age=31536000',
+  kind: 'photo' | 'proof'
+): Promise<string> {
+  const prepared = await preparePhoto(file);
+  await setDoc(mediaDoc(villageId, complaintId, kind), {
+    data: prepared.full,
+    bytes: prepared.fullBytes,
+    createdAt: serverTimestamp(),
   });
-  return getDownloadURL(snap.ref);
+  return prepared.thumb;
+}
+
+/** Full-size image for the detail view; null when there is none. */
+export async function getFullPhoto(
+  complaintId: string,
+  kind: 'photo' | 'proof' = 'photo',
+  villageId = activeVillageId()
+): Promise<string | null> {
+  const snap = await getDoc(mediaDoc(villageId, complaintId, kind));
+  return snap.exists() ? (snap.data().data as string) : null;
 }
 
 /** Newest-first list of complaints for the village. */
@@ -95,8 +115,13 @@ export async function getComplaint(id: string, villageId = activeVillageId()): P
 }
 
 /**
- * Citizen submit. The doc is written first (so the complaint is never lost if
- * the upload dies on a bad connection), then the photo URL is patched in.
+ * Citizen submit.
+ *
+ * The thumbnail goes in on the first write, not as a follow-up patch: the
+ * rules let an anonymous citizen create a complaint but never update one, so
+ * a patch would be denied and the photo silently lost. The full image is a
+ * separate document — if that write fails the complaint still stands, with
+ * its thumbnail intact.
  */
 export async function createComplaint(
   input: NewComplaintInput,
@@ -105,11 +130,23 @@ export async function createComplaint(
   const docRef = doc(complaintsCol(villageId));
   const now = Date.now();
 
+  let thumb: string | null = null;
+  let full: string | null = null;
+  if (input.photoFile) {
+    try {
+      const prepared = await preparePhoto(input.photoFile);
+      thumb = prepared.thumb;
+      full = prepared.full;
+    } catch {
+      // An unusable photo must not cost the citizen their complaint.
+    }
+  }
+
   await setDoc(docRef, {
     villageId,
     category: input.category,
     description: input.description.trim(),
-    photoUrl: null,
+    photoUrl: thumb,
     location: {
       ward: input.ward,
       ...(input.lat != null ? { lat: input.lat, lng: input.lng } : {}),
@@ -124,12 +161,14 @@ export async function createComplaint(
     updatedAt: serverTimestamp(),
   });
 
-  if (input.photoFile) {
+  if (full) {
     try {
-      const url = await uploadPhoto(villageId, docRef.id, input.photoFile, 'report');
-      await updateDoc(docRef, { photoUrl: url, updatedAt: serverTimestamp() });
+      await setDoc(mediaDoc(villageId, docRef.id, 'photo'), {
+        data: full,
+        createdAt: serverTimestamp(),
+      });
     } catch {
-      // The complaint stands without its photo rather than failing the submit.
+      // The feed still shows the thumbnail; only the full view is missing.
     }
   }
 
@@ -151,7 +190,7 @@ export async function updateComplaintStatus(
     timeline: arrayUnion({ status, at: Date.now(), ...(note ? { note } : {}) }),
   };
   if (note) patch.resolutionNote = note;
-  if (proofFile) patch.resolutionPhotoUrl = await uploadPhoto(villageId, id, proofFile, 'proof');
+  if (proofFile) patch.resolutionPhotoUrl = await storePhoto(villageId, id, proofFile, 'proof');
 
   await updateDoc(docRef, patch);
 }

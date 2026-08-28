@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import CategoryIcon from '@/components/CategoryIcon';
 import PhotoUpload from '@/components/PhotoUpload';
 import Icon from '@/components/Icon';
-import { getComplaint, updateComplaintStatus } from '@/lib/complaints';
+import { getComplaint, getFullPhoto, updateComplaintStatus } from '@/lib/complaints';
 import { categoryOf, STATUS_ORDER, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { dateTime, shortDate } from '@/lib/format';
@@ -24,6 +24,7 @@ export default function AdminComplaintPage() {
   const [status, setStatus] = useState<ComplaintStatus>('pending');
   const [note, setNote] = useState('');
   const [proof, setProof] = useState<File | null>(null);
+  const [fullPhoto, setFullPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,19 @@ export default function AdminComplaintPage() {
       alive = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !complaint?.photoUrl) return;
+    let alive = true;
+    getFullPhoto(id, 'photo')
+      .then((d) => alive && setFullPhoto(d))
+      .catch(() => {
+        /* the thumbnail stays on screen */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, complaint]);
 
   async function save() {
     if (!complaint) return;
@@ -95,7 +109,7 @@ export default function AdminComplaintPage() {
         {complaint.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={complaint.photoUrl}
+            src={fullPhoto || complaint.photoUrl}
             alt=""
             className="h-16 w-16 shrink-0 rounded-2xl object-cover"
           />
