@@ -12,12 +12,12 @@ import {
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, isFirebaseConfigured } from './firebase';
 import { compressPhoto } from './imageCompress';
-import { VILLAGE_ID } from './config';
+import { activeVillageId } from './tenant';
 import type { Announcement, AnnouncementKind } from './types';
 
 const DEMO_KEY = 'gaonconnect:announcements';
 
-function col(villageId = VILLAGE_ID) {
+function col(villageId = activeVillageId()) {
   return collection(db(), 'villages', villageId, 'announcements');
 }
 
@@ -30,7 +30,7 @@ function toMillis(v: unknown): number {
 function fromDoc(id: string, data: Record<string, any>): Announcement {
   return {
     id,
-    villageId: data.villageId ?? VILLAGE_ID,
+    villageId: data.villageId ?? activeVillageId(),
     kind: (data.kind as AnnouncementKind) ?? 'general',
     title: data.title ?? '',
     body: data.body ?? '',
@@ -55,7 +55,7 @@ function demoRead(): Announcement[] {
   const seed: Announcement[] = [
     {
       id: 'a-1',
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       kind: 'urgent',
       photoUrl: null,
       title: 'रविवार को पानी की सप्लाई बंद रहेगी',
@@ -65,7 +65,7 @@ function demoRead(): Announcement[] {
     },
     {
       id: 'a-2',
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       kind: 'general',
       photoUrl: null,
       title: 'ग्राम सभा की बैठक — 15 तारीख़',
@@ -88,7 +88,7 @@ function demoWrite(rows: Announcement[]) {
 
 /* -------------------------------- public -------------------------------- */
 
-export async function listAnnouncements(villageId = VILLAGE_ID): Promise<Announcement[]> {
+export async function listAnnouncements(villageId = activeVillageId()): Promise<Announcement[]> {
   if (!isFirebaseConfigured) return demoRead().sort((a, b) => b.createdAt - a.createdAt);
   const snap = await getDocs(query(col(villageId), orderBy('createdAt', 'desc')));
   return snap.docs.map((d) => fromDoc(d.id, d.data()));
@@ -97,7 +97,7 @@ export async function listAnnouncements(villageId = VILLAGE_ID): Promise<Announc
 export function subscribeToAnnouncements(
   onChange: (rows: Announcement[]) => void,
   onError: (e: Error) => void,
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): () => void {
   if (!isFirebaseConfigured) {
     listAnnouncements(villageId).then(onChange).catch((e) => onError(e as Error));
@@ -112,7 +112,7 @@ export function subscribeToAnnouncements(
 
 export async function createAnnouncement(
   input: { title: string; body: string; postedBy: string; kind: AnnouncementKind; photoFile?: File | null },
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): Promise<string> {
   const title = input.title.trim();
   const body = input.body.trim();

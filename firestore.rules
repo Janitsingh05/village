@@ -36,6 +36,17 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isSuperAdmin();
 
+      // First sign-in linking. Onboarding records the admin's phone number but
+      // cannot know their Auth UID, which does not exist until they sign in.
+      // Here they attach it themselves — but only their own UID, only appended,
+      // only to the village that named their verified number, and touching no
+      // other field.
+      allow update: if isSignedIn()
+        && onlyChanged(['adminUserIds'])
+        && request.auth.token.phone_number == '+91' + resource.data.adminPhone
+        && request.resource.data.adminUserIds ==
+             resource.data.adminUserIds.concat([request.auth.uid]);
+
       match /complaints/{complaintId} {
         allow read: if true;
 

@@ -9,7 +9,7 @@ import StatsCard from '@/components/StatsCard';
 import VillageArt from '@/components/VillageArt';
 import Icon from '@/components/Icon';
 import { subscribeToComplaints, computeStats } from '@/lib/complaints';
-import { villageDistrict, villageName } from '@/lib/config';
+import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 import type { Complaint } from '@/lib/types';
 
@@ -17,6 +17,7 @@ const RECENT_COUNT = 4;
 
 export default function HomePage() {
   const { lang, t } = useI18n();
+  const village = useVillage();
   const [rows, setRows] = useState<Complaint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,13 +48,13 @@ export default function HomePage() {
               {t('home.greeting')} <span aria-hidden>👋</span>
             </p>
             <h1 className="mt-1 text-[22px] font-extrabold leading-tight text-slate-900 sm:text-[26px]">
-              {villageName(lang)}
+              {village.name(lang)}
             </h1>
             <p className="mt-1 text-sm text-slate-600">{t('home.tagline')}</p>
-            {villageDistrict(lang) && (
+            {village.district(lang) && (
               <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-600">
                 <Icon name="pin" className="h-4 w-4 shrink-0" />
-                <span className="truncate">{villageDistrict(lang)}</span>
+                <span className="truncate">{village.district(lang)}</span>
               </p>
             )}
           </div>

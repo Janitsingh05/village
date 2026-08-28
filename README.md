@@ -29,27 +29,45 @@ Admin sign-in in demo mode: `admin@gaon.local` / `gaon1234`
 ### Going live with Firebase
 
 1. Create a Firebase project → add a **Web app** → copy the config into `.env.local`.
-2. Enable **Firestore**, **Storage**, and **Authentication → Email/Password**.
-3. Create the Sarpanch's admin user under Authentication → Users.
-4. Create the village document in Firestore:
+2. Enable **Firestore**, **Storage**, and **Authentication → Phone** (plus
+   Email/Password if you want the fallback admin login).
+3. Bootstrap the two documents that cannot be created from inside the app,
+   because each one is what grants the permission needed to create it:
 
-   ```
-   villages/pilot-village
-     name: "ग्राम पंचायत रामपुर"
-     state, district: "..."
-     adminUserIds: ["<the admin's Auth UID>"]
-     createdAt: <timestamp>
+   ```bash
+   # Firebase console -> Project settings -> Service accounts -> Generate new private key
+   npm run bootstrap -- --key ./serviceAccount.json      --admin-phone 98XXXXXXXX --admin-name "सरपंच जी"      --state Rajasthan --district Sikar
    ```
 
-   `pilot-village` must match `NEXT_PUBLIC_VILLAGE_ID`.
-5. Deploy the rules:
+   It prints what it will write and asks before touching anything. Add
+   `--superadmin-uid <uid>` to also grant yourself super-admin.
+4. Deploy the rules:
 
    ```bash
    firebase deploy --only firestore:rules,storage
    ```
+5. Sign in at `/admin/login` with that phone number. **The village links itself**
+   — the admin's Auth UID does not exist until this moment, so the app appends
+   it to `adminUserIds` on first sign-in (the rules allow only that one field,
+   only their own UID, and only on the village naming their verified number).
+6. Open **`/admin/setup`** and confirm every check is green before handing the
+   app to anyone.
 
-Restart `npm run dev` — the app switches off demo mode automatically the moment
-real keys are present.
+Restart `npm run dev` — the app leaves demo mode automatically once real keys
+are present.
+
+### Deploying
+
+Push to GitHub, then import the repo at [vercel.com/new](https://vercel.com/new).
+Next.js is detected automatically; no build settings to change.
+
+Add the `NEXT_PUBLIC_*` values from `.env.local` under **Environment Variables**
+— that file is gitignored, so Vercel has no other way to know them. Miss this
+and the live site silently runs in demo mode, where each visitor's complaints
+save only to their own browser and the Sarpanch sees nothing.
+
+`NEXT_PUBLIC_*` values are visible in the browser bundle. That is expected for
+Firebase web config; the actual protection is `firestore.rules`.
 
 ## Routes
 
@@ -128,13 +146,34 @@ lib/demoStore   localStorage stand-in used when Firebase keys are absent
 public/         PWA manifest + icons
 ```
 
+## Multi-village
+
+Every read and write goes through `villages/{villageId}/…`, resolved by
+`lib/tenant.ts` in this order:
+
+1. `?v=<id>` in the URL — hand a village a plain link or a QR code for the
+   notice board, no login needed
+2. the village stored on the device — set for an admin by whichever village
+   claims their phone number
+3. `NEXT_PUBLIC_VILLAGE_ID`, the pilot default
+
+Demo mode enforces the same scoping, so an onboarded village starts empty
+instead of inheriting the pilot's sample data.
+
+## Offline behaviour
+
+`public/sw.js` registers in production only. Build assets are cached
+cache-first, pages network-first with a cache fallback, and Firebase traffic is
+never intercepted — Firestore has its own offline layer, and caching auth or
+query responses here would be actively wrong. A dropped connection shows the
+last good page rather than the browser's error screen.
+
 ## Known gaps
 
-- `VILLAGE_ID` is still a constant in `lib/config.ts`. Every read and write is
-  already scoped to `villages/{villageId}`, so going multi-village means
-  resolving that value from the URL or the signed-in admin — no data migration.
-- Onboarding a village writes the record with an empty `adminUserIds[]`. That
-  admin's Auth UID has to be attached on first sign-in before Firestore rules
-  will let them update complaints.
-- First Load JS is ~265 kB, almost all Firebase SDK. Dynamic-importing it in
+- Firestore rules are not covered by automated tests. The emulator needs Java,
+  which is not installed here, so the rules have been reasoned through but not
+  executed. Worth running `firebase emulators:exec` once on a machine with a
+  JDK before the pilot.
+- Announcement posters upload but there is no way to remove one after posting.
+- First Load JS is ~267 kB, almost all Firebase SDK. Dynamic-importing it in
   `lib/firebase.ts` is the next win if 3G load time becomes a problem.

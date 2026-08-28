@@ -14,7 +14,8 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, isFirebaseConfigured } from './firebase';
-import { VILLAGE_ID, complaintRef } from './config';
+import { complaintRef } from './config';
+import { activeVillageId } from './tenant';
 import { demoStore } from './demoStore';
 import { compressPhoto } from './imageCompress';
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
@@ -22,7 +23,7 @@ import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
 // Every path here is scoped to villages/{villageId} so the data model is
 // already multi-tenant even though Phase 1 pins a single village.
 
-function complaintsCol(villageId = VILLAGE_ID) {
+function complaintsCol(villageId = activeVillageId()) {
   return collection(db(), 'villages', villageId, 'complaints');
 }
 
@@ -37,7 +38,7 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
   return {
     id,
     ref: complaintRef(id, createdAt),
-    villageId: data.villageId ?? VILLAGE_ID,
+    villageId: data.villageId ?? activeVillageId(),
     category: data.category,
     description: data.description ?? '',
     photoUrl: data.photoUrl ?? null,
@@ -71,7 +72,7 @@ async function uploadPhoto(
 }
 
 /** Newest-first list of complaints for the village. */
-export async function listComplaints(villageId = VILLAGE_ID): Promise<Complaint[]> {
+export async function listComplaints(villageId = activeVillageId()): Promise<Complaint[]> {
   if (!isFirebaseConfigured) return demoStore.list();
   const snap = await getDocs(query(complaintsCol(villageId), orderBy('createdAt', 'desc')));
   return snap.docs.map((d) => fromDoc(d.id, d.data()));
@@ -81,7 +82,7 @@ export async function listComplaints(villageId = VILLAGE_ID): Promise<Complaint[
 export function subscribeToComplaints(
   onChange: (rows: Complaint[]) => void,
   onError: (e: Error) => void,
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): () => void {
   if (!isFirebaseConfigured) {
     demoStore.list().then(onChange).catch((e) => onError(e as Error));
@@ -94,7 +95,7 @@ export function subscribeToComplaints(
   );
 }
 
-export async function getComplaint(id: string, villageId = VILLAGE_ID): Promise<Complaint | null> {
+export async function getComplaint(id: string, villageId = activeVillageId()): Promise<Complaint | null> {
   if (!isFirebaseConfigured) return demoStore.get(id);
   const snap = await getDoc(doc(complaintsCol(villageId), id));
   return snap.exists() ? fromDoc(snap.id, snap.data()) : null;
@@ -106,7 +107,7 @@ export async function getComplaint(id: string, villageId = VILLAGE_ID): Promise<
  */
 export async function createComplaint(
   input: NewComplaintInput,
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): Promise<string> {
   if (!isFirebaseConfigured) return demoStore.create(input);
 
@@ -150,7 +151,7 @@ export async function updateComplaintStatus(
   status: ComplaintStatus,
   note: string,
   proofFile: File | null,
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): Promise<void> {
   if (!isFirebaseConfigured) return demoStore.updateStatus(id, status, note, proofFile);
 
@@ -223,7 +224,7 @@ export function computeStats(rows: Complaint[]): ComplaintStats {
 export async function submitFeedback(
   id: string,
   verdict: 'still_open' | 'confirmed',
-  villageId = VILLAGE_ID
+  villageId = activeVillageId()
 ): Promise<void> {
   if (!isFirebaseConfigured) return demoStore.setFeedback(id, verdict);
   await updateDoc(doc(complaintsCol(villageId), id), {

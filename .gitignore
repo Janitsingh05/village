@@ -6,3 +6,6 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Firebase service account key — never commit this
+serviceAccount*.json

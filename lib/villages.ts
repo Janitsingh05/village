@@ -1,11 +1,15 @@
 import {
+  arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
+  where,
   Timestamp,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
@@ -124,4 +128,73 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
 
   await setDoc(doc(col(), id), { ...record, createdAt: serverTimestamp() });
   return id;
+}
+
+function fromDoc(id: string, data: Record<string, any>): Village {
+  return {
+    id,
+    name: data.name ?? '',
+    state: data.state ?? '',
+    district: data.district ?? '',
+    address: data.address ?? '',
+    adminName: data.adminName ?? '',
+    adminPhone: data.adminPhone ?? '',
+    adminUserIds: data.adminUserIds ?? [],
+    createdAt: toMillis(data.createdAt),
+  };
+}
+
+export async function getVillage(id: string): Promise<Village | null> {
+  if (!isFirebaseConfigured) return demoRead().find((v) => v.id === id) || null;
+  const snap = await getDoc(doc(col(), id));
+  return snap.exists() ? fromDoc(snap.id, snap.data()) : null;
+}
+
+/**
+ * Links a freshly onboarded admin to their village on first sign-in.
+ *
+ * Onboarding only knows the admin's phone number — their Firebase Auth UID does
+ * not exist until they actually sign in. So the first time they do, we find the
+ * village that named their number and append their UID to adminUserIds, which
+ * is what the Firestore rules check before allowing any complaint update.
+ *
+ * The matching rule is enforced server-side too: a user may only ever append
+ * their own UID, and only to a village whose adminPhone equals their verified
+ * number.
+ *
+ * Returns the village id they now administer, or null if no village claims them.
+ */
+export async function claimVillageForAdmin(uid: string, phone: string): Promise<string | null> {
+  const digits = (phone || '').replace(/\D/g, '').slice(-10);
+  if (!digits) return null;
+
+  if (!isFirebaseConfigured) {
+    const village = demoRead().find((v) => v.adminPhone === digits);
+    if (!village) return null;
+    if (!village.adminUserIds.includes(uid)) {
+      village.adminUserIds = [...village.adminUserIds, uid];
+      demoWrite(demoRead().map((v) => (v.id === village.id ? village : v)));
+    }
+    return village.id;
+  }
+
+  const snap = await getDocs(query(col(), where('adminPhone', '==', digits)));
+  if (snap.empty) return null;
+
+  const match = snap.docs[0];
+  const existing: string[] = match.data().adminUserIds ?? [];
+
+  if (!existing.includes(uid)) {
+    try {
+      // arrayUnion keeps this safe if two devices sign in at the same moment.
+      await updateDoc(match.ref, { adminUserIds: arrayUnion(uid) });
+    } catch {
+      // Another device won the race, or the write was refused. The village is
+      // still the one that names this number, so hand it back either way — a
+      // genuine permission problem will surface on the next real update rather
+      // than locking the admin out of their own dashboard here.
+    }
+  }
+
+  return match.id;
 }

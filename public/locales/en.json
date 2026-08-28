@@ -215,7 +215,8 @@
     "navDashboard": "Dashboard",
     "navComplaints": "Complaints",
     "navAnnounce": "Notices",
-    "navProfile": "Profile"
+    "navProfile": "Profile",
+    "notLinked": "This mobile number is not linked to any village yet. Ask the super admin to add it — until then you cannot update complaints."
   },
   "nav": {
     "home": "Home",
@@ -284,5 +285,24 @@
     "created": "Village added",
     "empty": "No villages onboarded yet.",
     "complaintsCount": "{n} complaints"
+  },
+  "setup": {
+    "title": "Setup check",
+    "subtitle": "These should all be green before you go live",
+    "recheck": "Check again",
+    "checking": "Checking…",
+    "firebase": "Firebase is configured",
+    "firebaseFix": "Fill the NEXT_PUBLIC_FIREBASE_* values in .env.local (or Vercel environment variables).",
+    "firestore": "Firestore is reachable",
+    "firestoreFix": "Enable Firestore and deploy rules: firebase deploy --only firestore:rules,storage",
+    "villageDoc": "Village record exists",
+    "villageDocFix": "Run: npm run bootstrap -- --key ./serviceAccount.json --admin-phone 98XXXXXXXX",
+    "adminLink": "Your account is linked to this village",
+    "adminLinkFix": "Sign in with the mobile number recorded on the village.",
+    "storage": "Photo storage is configured",
+    "storageFix": "Set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET and enable Storage.",
+    "demoWarn": "Demo mode is on — data stays in this browser only. A real pilot needs Firebase.",
+    "allGood": "All good — you are ready to run the pilot.",
+    "villageIdLabel": "Active village id"
   }
 }

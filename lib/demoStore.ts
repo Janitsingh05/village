@@ -1,5 +1,6 @@
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
 import { VILLAGE_ID, complaintRef } from './config';
+import { activeVillageId } from './tenant';
 
 /**
  * Browser-local stand-in for Firestore + Storage, used when .env.local has no
@@ -53,6 +54,9 @@ function fileToDataUrl(file: File): Promise<string> {
 
 function seedIfEmpty() {
   if (typeof window === 'undefined') return;
+  // Sample data belongs to the pilot village only; a village onboarded during
+  // the demo should start empty, exactly as a real one would.
+  if (activeVillageId() !== VILLAGE_ID) return;
   if (window.localStorage.getItem(SEEDED)) return;
   window.localStorage.setItem(SEEDED, '1');
   if (read().length) return;
@@ -63,7 +67,7 @@ function seedIfEmpty() {
     {
       id: 'demo-1',
       ref: complaintRef('demo-1', now - 3 * day),
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       category: 'drain',
       description: 'मंदिर के पास वाला नाला पूरी तरह जाम है, गंदा पानी सड़क पर बह रहा है।',
       photoUrl: null,
@@ -83,7 +87,7 @@ function seedIfEmpty() {
     {
       id: 'demo-2',
       ref: complaintRef('demo-2', now - 6 * 3600_000),
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       category: 'streetlight',
       description: 'वार्ड 2 की गली में तीन स्ट्रीट लाइट एक हफ़्ते से बंद हैं।',
       photoUrl: null,
@@ -100,7 +104,7 @@ function seedIfEmpty() {
     {
       id: 'demo-3',
       ref: complaintRef('demo-3', now - 9 * day),
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       category: 'water',
       description: 'हैंडपंप का पानी गंदा आ रहा है, पीने लायक नहीं है।',
       photoUrl: null,
@@ -125,7 +129,12 @@ function seedIfEmpty() {
 export const demoStore = {
   async list(): Promise<Complaint[]> {
     seedIfEmpty();
-    return read().sort((a, b) => b.createdAt - a.createdAt);
+    // Scoped exactly the way the Firestore path is, so demo mode shows the
+    // same tenant isolation a real deployment has rather than one shared pile.
+    const villageId = activeVillageId();
+    return read()
+      .filter((c) => c.villageId === villageId)
+      .sort((a, b) => b.createdAt - a.createdAt);
   },
 
   async get(id: string): Promise<Complaint | null> {
@@ -140,7 +149,7 @@ export const demoStore = {
     const complaint: Complaint = {
       id,
       ref: complaintRef(id, now),
-      villageId: VILLAGE_ID,
+      villageId: activeVillageId(),
       category: input.category,
       description: input.description,
       photoUrl: input.photoFile ? await fileToDataUrl(input.photoFile) : null,

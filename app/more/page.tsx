@@ -5,11 +5,12 @@ import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/Icon';
 import LanguageToggle from '@/components/LanguageToggle';
-import { villageDistrict, villageName } from '@/lib/config';
+import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 
 export default function MorePage() {
   const { lang, t } = useI18n();
+  const village = useVillage();
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-24">
@@ -17,11 +18,11 @@ export default function MorePage() {
 
       <main className="mx-auto max-w-2xl space-y-3 px-4">
         <div className="rounded-3xl bg-white p-4 shadow-card">
-          <p className="text-lg font-bold text-slate-900">{villageName(lang)}</p>
-          {villageDistrict(lang) && (
+          <p className="text-lg font-bold text-slate-900">{village.name(lang)}</p>
+          {village.district(lang) && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
               <Icon name="pin" className="h-4 w-4 shrink-0" />
-              {villageDistrict(lang)}
+              {village.district(lang)}
             </p>
           )}
         </div>

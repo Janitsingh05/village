@@ -6,12 +6,13 @@ import { useEffect, useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import Icon from '@/components/Icon';
 import { signOut, watchSession, type AdminSession } from '@/lib/auth';
-import { villageDistrict, villageName } from '@/lib/config';
+import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 
 export default function AdminProfilePage() {
   const router = useRouter();
   const { lang, t } = useI18n();
+  const village = useVillage();
   const [session, setSession] = useState<AdminSession | null>(null);
 
   useEffect(() => watchSession(setSession), []);
@@ -22,9 +23,9 @@ export default function AdminProfilePage() {
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-50 text-brand-600">
           <Icon name="user" className="h-8 w-8" />
         </span>
-        <p className="mt-3 text-lg font-bold text-slate-900">{villageName(lang)}</p>
-        {villageDistrict(lang) && (
-          <p className="text-sm text-slate-500">{villageDistrict(lang)}</p>
+        <p className="mt-3 text-lg font-bold text-slate-900">{village.name(lang)}</p>
+        {village.district(lang) && (
+          <p className="text-sm text-slate-500">{village.district(lang)}</p>
         )}
         {session && (
           <p className="mt-2 font-mono text-xs text-slate-400">
@@ -48,6 +49,17 @@ export default function AdminProfilePage() {
         <span className="min-w-0 flex-1 font-semibold text-slate-900">
           {t('admin.publicPage')}
         </span>
+        <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-slate-300" />
+      </Link>
+
+      <Link
+        href="/admin/setup"
+        className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card transition active:scale-[0.99]"
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
+          <Icon name="checkCircle" className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1 font-semibold text-slate-900">{t('setup.title')}</span>
         <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-slate-300" />
       </Link>
 

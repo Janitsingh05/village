@@ -215,7 +215,8 @@
     "navDashboard": "डैशबोर्ड",
     "navComplaints": "शिकायतें",
     "navAnnounce": "घोषणाएँ",
-    "navProfile": "प्रोफ़ाइल"
+    "navProfile": "प्रोफ़ाइल",
+    "notLinked": "यह मोबाइल नंबर किसी गाँव से जुड़ा नहीं है। सुपर एडमिन से अपना नंबर जुड़वाएँ, तब तक आप शिकायतें अपडेट नहीं कर पाएंगे।"
   },
   "nav": {
     "home": "होम",
@@ -284,5 +285,24 @@
     "created": "गाँव जोड़ दिया गया",
     "empty": "अभी कोई गाँव जोड़ा नहीं गया।",
     "complaintsCount": "{n} शिकायतें"
+  },
+  "setup": {
+    "title": "सेटअप जाँच",
+    "subtitle": "लाइव करने से पहले ये सब हरे होने चाहिए",
+    "recheck": "दोबारा जाँचें",
+    "checking": "जाँच हो रही है…",
+    "firebase": "Firebase कॉन्फ़िगर है",
+    "firebaseFix": ".env.local (या Vercel की Environment Variables) में NEXT_PUBLIC_FIREBASE_* भरें।",
+    "firestore": "Firestore से जुड़ाव",
+    "firestoreFix": "Firestore चालू करें और rules deploy करें: firebase deploy --only firestore:rules,storage",
+    "villageDoc": "गाँव का रिकॉर्ड मौजूद है",
+    "villageDocFix": "चलाएँ: npm run bootstrap -- --key ./serviceAccount.json --admin-phone 98XXXXXXXX",
+    "adminLink": "आपका अकाउंट इस गाँव से जुड़ा है",
+    "adminLinkFix": "उसी मोबाइल नंबर से लॉगिन करें जो गाँव के रिकॉर्ड में है।",
+    "storage": "फ़ोटो स्टोरेज कॉन्फ़िगर है",
+    "storageFix": "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET भरें और Storage चालू करें।",
+    "demoWarn": "डेमो मोड चालू है — डेटा सिर्फ़ इसी ब्राउज़र में रहेगा। असली पायलट के लिए Firebase ज़रूरी है।",
+    "allGood": "सब ठीक है — पायलट शुरू किया जा सकता है।",
+    "villageIdLabel": "सक्रिय गाँव आईडी"
   }
 }

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { VILLAGE } from '@/lib/config';
 import { LanguageProvider } from '@/lib/i18n';
+import { VillageProvider } from '@/lib/village-context';
+import ServiceWorker from '@/components/ServiceWorker';
 
 export const metadata: Metadata = {
   title: 'GaonConnect · ' + VILLAGE.nameHi,
@@ -25,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hi">
       <body className="font-sans">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <VillageProvider>{children}</VillageProvider>
+          <ServiceWorker />
+        </LanguageProvider>
       </body>
     </html>
   );
