@@ -8,6 +8,7 @@ import Icon from '@/components/Icon';
 import { subscribeToComplaints } from '@/lib/complaints';
 import { CATEGORIES, categoryOf, STATUS_ORDER, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
+import { adminComplaintHref } from '@/lib/route-id';
 import { shortDate } from '@/lib/format';
 import type { Complaint, ComplaintStatus } from '@/lib/types';
 
@@ -114,7 +115,7 @@ export default function AdminComplaintsPage() {
             {visible.map((c) => (
               <li key={c.id}>
                 <Link
-                  href={'/admin/complaint/' + c.id}
+                  href={adminComplaintHref(c.id)}
                   className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:grid-cols-[1fr_10rem_8rem_7rem_1.5rem]"
                 >
                   <span className="flex min-w-0 items-center gap-3">

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
@@ -11,12 +10,12 @@ import Icon from '@/components/Icon';
 import { getComplaint, getFullPhoto, submitFeedback } from '@/lib/complaints';
 import { categoryOf, STATUS_TIMELINE, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
+import { complaintShareUrl, useRouteId } from '@/lib/route-id';
 import { dateTime, maskPhone } from '@/lib/format';
 import type { Complaint } from '@/lib/types';
 
 export default function ComplaintDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = params?.id;
+  const id = useRouteId('/complaint');
   const { lang, t } = useI18n();
 
   const [complaint, setComplaint] = useState<Complaint | null | undefined>(undefined);
@@ -33,7 +32,11 @@ export default function ComplaintDetailPage() {
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (id === undefined) return;
+    if (!id) {
+      setComplaint(null);
+      return;
+    }
     let alive = true;
     getComplaint(id)
       .then((c) => alive && setComplaint(c))
@@ -66,7 +69,7 @@ export default function ComplaintDetailPage() {
   }, [id, complaint]);
 
   async function share() {
-    const url = window.location.origin + '/complaint/' + id;
+    const url = complaintShareUrl(window.location.origin, id || '');
     if (navigator.share) {
       try {
         await navigator.share({ title: 'GaonConnect', url });

@@ -10,6 +10,7 @@ import { createComplaint } from '@/lib/complaints';
 import { wardOptions } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { rememberMe } from '@/lib/me';
+import { complaintHref } from '@/lib/route-id';
 import type { CategoryId } from '@/lib/types';
 
 const DESC_MAX = 200;
@@ -78,7 +79,7 @@ export default function ReportPage() {
         reporterPhone: phoneDigits,
       });
       rememberMe({ name: name.trim(), phone: phoneDigits });
-      router.push('/complaint/' + id + '?new=1');
+      router.push(complaintHref(id) + '&new=1');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('report.failed'));
       setSubmitting(false);

@@ -6,6 +6,7 @@ import CategoryIcon from './CategoryIcon';
 import StatusBadge from './StatusBadge';
 import { categoryOf, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
+import { complaintHref } from '@/lib/route-id';
 import { shortDate } from '@/lib/format';
 import type { Complaint } from '@/lib/types';
 
@@ -22,7 +23,7 @@ export default function ComplaintCard({
 
   return (
     <Link
-      href={href || '/complaint/' + complaint.id}
+      href={href || complaintHref(complaint.id)}
       className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-card transition active:scale-[0.99]"
     >
       {complaint.photoUrl ? (

@@ -12,7 +12,7 @@ const VERSION = 'v1';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
-const PRECACHE = ['/', '/report', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+const PRECACHE = ['/', '/report/', '/announcements/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

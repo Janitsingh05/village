@@ -53,16 +53,20 @@ export default function AppHeader({
 
         <LanguageToggle />
 
-        <Link
-          href="/announcements"
-          aria-label={t('nav.notifications')}
-          className="relative -mr-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
-        >
-          <Icon name="bell" className="h-6 w-6" />
-          {unread && (
-            <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
-          )}
-        </Link>
+        {/* The bell and a page action would together squeeze the title into an
+            ellipsis, so a page that supplies its own action keeps that instead. */}
+        {!action && (
+          <Link
+            href="/announcements"
+            aria-label={t('nav.notifications')}
+            className="relative -mr-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
+          >
+            <Icon name="bell" className="h-6 w-6" />
+            {unread && (
+              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
+            )}
+          </Link>
+        )}
       </div>
     </header>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import CategoryIcon from '@/components/CategoryIcon';
 import PhotoUpload from '@/components/PhotoUpload';
@@ -9,15 +9,15 @@ import Icon from '@/components/Icon';
 import { getComplaint, getFullPhoto, updateComplaintStatus } from '@/lib/complaints';
 import { categoryOf, STATUS_ORDER, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
+import { useRouteId } from '@/lib/route-id';
 import { dateTime, shortDate } from '@/lib/format';
 import type { Complaint, ComplaintStatus } from '@/lib/types';
 
 const NOTE_MAX = 200;
 
 export default function AdminComplaintPage() {
-  const params = useParams<{ id: string }>();
   const router = useRouter();
-  const id = params?.id;
+  const id = useRouteId('/admin/complaint');
   const { lang, t } = useI18n();
 
   const [complaint, setComplaint] = useState<Complaint | null | undefined>(undefined);
@@ -30,7 +30,11 @@ export default function AdminComplaintPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (id === undefined) return;
+    if (!id) {
+      setComplaint(null);
+      return;
+    }
     let alive = true;
     getComplaint(id)
       .then((c) => {

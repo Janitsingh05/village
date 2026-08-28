@@ -9,3 +9,7 @@ next-env.d.ts
 
 # Firebase service account key — never commit this
 serviceAccount*.json
+
+# Build output and Firebase CLI cache
+out/
+.firebase/
