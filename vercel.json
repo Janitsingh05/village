@@ -2,11 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/complaint/:path*",
+      "source": "/complaint/(.*)",
       "destination": "/complaint/index.html"
     },
     {
-      "source": "/admin/complaint/:path*",
+      "source": "/admin/complaint/(.*)",
       "destination": "/admin/complaint/index.html"
     }
   ],
