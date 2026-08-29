@@ -20,6 +20,19 @@ export default function AdminComplaintsPage() {
   const [rows, setRows] = useState<Complaint[] | null>(null);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [category, setCategory] = useState<string>('all');
+
+  // The dashboard links here with a filter already chosen — "resolved", or a
+  // category from the ranking. Read straight off the URL rather than through
+  // useSearchParams, which would need a Suspense boundary in a static export.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('status');
+    if (s && (s === 'pending' || s === 'in_progress' || s === 'resolved' || s === 'closed')) {
+      setStatus(s);
+    }
+    const c = params.get('category');
+    if (c) setCategory(c);
+  }, []);
   const [dateRange, setDateRange] = useState<DateFilter>('all');
 
   useEffect(() => {

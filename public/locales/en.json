@@ -88,8 +88,6 @@
     "step2New": "2. Describe the problem",
     "descPlaceholderNew": "Briefly describe the problem…",
     "step3New": "3. Upload a photo",
-    "photoBoxTitle": "Take a photo or pick from gallery",
-    "photoBoxSub": "Upload a clear photo of the problem",
     "photoLimit": "One photo (max 5MB)",
     "step4New": "4. Location",
     "gpsOption": "My current location (GPS)",
@@ -110,8 +108,7 @@
     "remove": "Remove",
     "preparing": "Preparing…",
     "hint": "Add a photo",
-    "selectedAlt": "Selected photo",
-    "proofHint": "Photo of the completed work"
+    "selectedAlt": "Selected photo"
   },
   "detail": {
     "successTitle": "Your complaint has been filed",
@@ -219,7 +216,9 @@
     "notLinked": "This mobile number is not linked to any village yet. Ask the super admin to add it — until then you cannot update complaints.",
     "otpTimeout": "Could not send the OTP — check your connection and try again.",
     "otpSendFailed": "Could not send an OTP to this number. Check it, or sign in with email/password.",
-    "otpSlowHint": "This is taking a moment. If a security check (reCAPTCHA) appears, please complete it."
+    "otpSlowHint": "This is taking a moment. If a security check (reCAPTCHA) appears, please complete it.",
+    "menuHeading": "Panchayat menu",
+    "signedInAs": "Signed in: {phone}"
   },
   "nav": {
     "home": "Home",
@@ -228,7 +227,8 @@
     "mine": "My reports",
     "more": "More",
     "menu": "Menu",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "close": "Close"
   },
   "announce": {
     "title": "Announcements",
@@ -307,5 +307,32 @@
     "allGood": "All good — you are ready to run the pilot.",
     "villageIdLabel": "Active village id",
     "projectLabel": "Firebase project"
+  },
+  "perf": {
+    "title": "Resolution time",
+    "subtitle": "Where things are slowing down",
+    "avgAll": "Average resolution time",
+    "resolvedCount": "{n} complaints resolved",
+    "byCategory": "By category",
+    "longestOpen": "Open the longest",
+    "openFor": "open {n} days",
+    "resolvedIn": "{n} days",
+    "noResolved": "Nothing has been resolved yet, so there is no average to show.",
+    "noOpen": "Nothing is currently open.",
+    "fastest": "Fastest",
+    "slowest": "Slowest"
+  },
+  "camera": {
+    "open": "Open camera",
+    "openSub": "Take a photo now",
+    "gallery": "Choose from gallery",
+    "gallerySub": "A photo you already have",
+    "shutter": "Take photo",
+    "retake": "Retake",
+    "use": "Use this",
+    "switch": "Switch camera",
+    "starting": "Starting the camera…",
+    "denied": "Camera permission was refused. Allow it in your browser settings, or pick a photo from the gallery.",
+    "unavailable": "No camera found on this phone. Please choose from the gallery."
   }
 }

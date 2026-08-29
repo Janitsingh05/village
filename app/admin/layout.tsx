@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import AdminNav from '@/components/AdminNav';
+import AdminDrawer from '@/components/AdminDrawer';
 import LanguageToggle from '@/components/LanguageToggle';
 import Icon from '@/components/Icon';
-import { watchSession, type AdminSession } from '@/lib/auth';
+import { signOut, watchSession, type AdminSession } from '@/lib/auth';
 import { claimVillageForAdmin } from '@/lib/villages';
 import { setActiveVillage } from '@/lib/tenant';
 import { useVillage } from '@/lib/village-context';
@@ -30,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [session, setSession] = useState<AdminSession | null | undefined>(undefined);
   const [unclaimed, setUnclaimed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => watchSession(setSession), []);
 
@@ -85,13 +87,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-dvh bg-slate-50 pb-24">
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          <Link
-            href="/admin/profile"
+          <button
+            onClick={() => setMenuOpen(true)}
             aria-label={t('nav.menu')}
+            aria-expanded={menuOpen}
             className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
           >
             <Icon name="menu" className="h-6 w-6" strokeWidth={2} />
-          </Link>
+          </button>
           <p className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
             {village.name(lang)}
           </p>
@@ -116,6 +119,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {children}
       <AdminNav />
+
+      <AdminDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        phone={session.phone}
+        onSignOut={async () => {
+          await signOut();
+          router.replace('/admin/login');
+        }}
+      />
     </div>
   );
 }

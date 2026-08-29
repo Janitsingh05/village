@@ -68,13 +68,26 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-2">
-        <StatsCard icon="doc" tone="amber" value={String(allTime.total)} label={t('admin.statTotal')} />
-        <StatsCard icon="clock" tone="blue" value={String(stats.total)} label={t('admin.statNew')} />
+        <StatsCard
+          icon="doc"
+          tone="amber"
+          value={String(allTime.total)}
+          label={t('admin.statTotal')}
+          href="/admin/complaints"
+        />
+        <StatsCard
+          icon="clock"
+          tone="blue"
+          value={String(stats.total)}
+          label={t('admin.statNew')}
+          href="/admin/complaints?status=pending"
+        />
         <StatsCard
           icon="checkCircle"
           tone="green"
           value={String(stats.resolved)}
           label={t('admin.statResolvedShort')}
+          href="/admin/complaints?status=resolved"
         />
         <StatsCard
           icon="users"
@@ -85,6 +98,7 @@ export default function AdminDashboardPage() {
               : stats.avgResolutionDays.toFixed(1) + ' ' + t('common.days')
           }
           label={t('admin.statAvg')}
+          href="/admin/performance"
         />
       </div>
 

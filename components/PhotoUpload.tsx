@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Icon from './Icon';
+import CameraCapture from './CameraCapture';
 import { preparePhoto, readableSize } from '@/lib/imageCompress';
 import { useI18n } from '@/lib/i18n';
 
@@ -24,13 +25,9 @@ interface Picked {
  */
 export default function PhotoUpload({
   max = 1,
-  titleKey = 'report.photoBoxTitle',
-  subKey = 'report.photoBoxSub',
   onChange,
 }: {
   max?: number;
-  titleKey?: string;
-  subKey?: string;
   onChange: (files: File[]) => void;
 }) {
   const { t } = useI18n();
@@ -38,13 +35,14 @@ export default function PhotoUpload({
   const [picked, setPicked] = useState<Picked[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   function publish(next: Picked[]) {
     setPicked(next);
     onChange(next.map((p) => p.file));
   }
 
-  async function handleFiles(fileList: FileList | null) {
+  async function handleFiles(fileList: FileList | File[] | null) {
     if (!fileList || fileList.length === 0) return;
     setError(null);
     setBusy(true);
@@ -124,20 +122,48 @@ export default function PhotoUpload({
       )}
 
       {room > 0 && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-          className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/40 px-4 py-6 text-center transition active:scale-[0.99] disabled:opacity-60"
-        >
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white">
-            <Icon name="camera" className="h-6 w-6" strokeWidth={1.8} />
-          </span>
-          <span className="text-sm font-bold text-brand-700">
-            {busy ? t('photo.preparing') : t(titleKey)}
-          </span>
-          <span className="text-xs text-slate-500">{t(subKey)}</span>
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          {/* The camera comes first: someone standing in front of the problem
+              should not have to hunt for it. */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setCameraOpen(true)}
+            className="flex flex-col items-center gap-2 rounded-2xl border-2 border-brand-300 bg-brand-50/60 px-3 py-5 text-center transition active:scale-[0.98] disabled:opacity-60"
+          >
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white">
+              <Icon name="camera" className="h-6 w-6" strokeWidth={1.8} />
+            </span>
+            <span className="text-sm font-bold leading-tight text-brand-700">
+              {busy ? t('photo.preparing') : t('camera.open')}
+            </span>
+            <span className="text-[11px] leading-tight text-slate-500">{t('camera.openSub')}</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-3 py-5 text-center transition active:scale-[0.98] disabled:opacity-60"
+          >
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-500">
+              <Icon name="doc" className="h-6 w-6" strokeWidth={1.8} />
+            </span>
+            <span className="text-sm font-bold leading-tight text-slate-700">
+              {t('camera.gallery')}
+            </span>
+            <span className="text-[11px] leading-tight text-slate-500">
+              {t('camera.gallerySub')}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={(file) => handleFiles([file])}
+          onClose={() => setCameraOpen(false)}
+        />
       )}
 
       <p className="mt-2 text-center text-[11px] text-slate-400">
