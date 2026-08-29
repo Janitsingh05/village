@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { listVillages } from '@/lib/villages';
 import { useI18n } from '@/lib/i18n';
+import { googleMapsUrl } from '@/lib/geocode';
 import { shortDate } from '@/lib/format';
 import type { Village } from '@/lib/types';
 
@@ -65,8 +66,22 @@ export default function VillagesPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold text-slate-900">{v.name}</p>
-                <p className="truncate text-xs text-slate-500">
+                <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
                   {[v.district, v.state].filter(Boolean).join(', ')}
+                  {v.location && (
+                    // Onboarded by picking a real point rather than typing a
+                    // district, so the location is worth trusting.
+                    <a
+                      href={googleMapsUrl(v.location.lat, v.location.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={t('search.verified')}
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700"
+                    >
+                      <Icon name="pin" className="h-3 w-3" />
+                      {t('search.verified')}
+                    </a>
+                  )}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-slate-400">
                   {v.adminName} · {v.adminPhone} · {shortDate(v.createdAt, lang)}

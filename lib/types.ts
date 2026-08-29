@@ -96,6 +96,10 @@ export interface Village {
   /** Extra admins approved after onboarding, by phone number. */
   adminPhones: string[];
   adminUserIds: string[];
+  /** Coordinates confirmed against a map when the village was onboarded. */
+  location: { lat: number; lng: number } | null;
+  /** What the map service called this place — evidence of what was matched. */
+  mapPlace: string;
   createdAt: number;
 }
 

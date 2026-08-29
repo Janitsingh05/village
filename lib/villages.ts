@@ -42,6 +42,8 @@ export async function listVillages(): Promise<Village[]> {
       adminPhone: data.adminPhone ?? '',
     adminPhones: data.adminPhones ?? [],
       adminUserIds: data.adminUserIds ?? [],
+    location: data.location ?? null,
+    mapPlace: data.mapPlace ?? '',
       createdAt: toMillis(data.createdAt),
     };
   });
@@ -49,6 +51,9 @@ export async function listVillages(): Promise<Village[]> {
 
 export interface NewVillageInput {
   name: string;
+  /** Set when the village was picked off the map rather than typed. */
+  location?: { lat: number; lng: number } | null;
+  mapPlace?: string;
   /** Optional English name so the language toggle can switch it. */
   nameEn?: string;
   state: string;
@@ -107,6 +112,8 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
     // The admin's Auth UID is attached the first time they sign in; the
     // Firestore rules read this array to decide who may update complaints.
     adminUserIds: [],
+    location: input.location ?? null,
+    mapPlace: (input.mapPlace || '').trim(),
     createdAt: Date.now(),
   };
 
@@ -128,6 +135,8 @@ function fromDoc(id: string, data: Record<string, any>): Village {
     adminPhone: data.adminPhone ?? '',
     adminPhones: data.adminPhones ?? [],
     adminUserIds: data.adminUserIds ?? [],
+    location: data.location ?? null,
+    mapPlace: data.mapPlace ?? '',
     createdAt: toMillis(data.createdAt),
   };
 }

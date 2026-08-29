@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Icon from '@/components/Icon';
+import VillageSearch from '@/components/VillageSearch';
 import { createVillage } from '@/lib/villages';
 import { STATES, districtsFor } from '@/lib/india';
 import { useI18n } from '@/lib/i18n';
+import type { PlaceResult } from '@/lib/geocode';
 
 export default function NewVillagePage() {
   const router = useRouter();
@@ -21,9 +23,26 @@ export default function NewVillagePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A village confirmed against the map, and the escape hatch for one that is
+  // not on it — plenty of small hamlets are unmapped, and onboarding must not
+  // depend on a third party knowing about them.
+  const [picked, setPicked] = useState<PlaceResult | null>(null);
+  const [manual, setManual] = useState(false);
+
+  function acceptPlace(place: PlaceResult) {
+    setPicked(place);
+    // Fill what the map is authoritative about, leaving the name editable so a
+    // local spelling can still win.
+    if (!name.trim()) setName(place.name);
+    if (place.state) setState(place.state);
+    if (place.district) setDistrict(place.district);
+  }
+
   const knownDistricts = districtsFor(state);
   const canSubmit =
     name.trim().length >= 2 &&
+    // Either confirmed on the map, or explicitly entered by hand.
+    (picked !== null || manual) &&
     state !== '' &&
     district.trim() !== '' &&
     adminName.trim().length >= 2 &&
@@ -36,7 +55,17 @@ export default function NewVillagePage() {
     setBusy(true);
     setError(null);
     try {
-      await createVillage({ name, nameEn, state, district, address, adminName, adminPhone });
+      await createVillage({
+        name,
+        nameEn,
+        state,
+        district,
+        address,
+        adminName,
+        adminPhone,
+        location: picked ? { lat: picked.lat, lng: picked.lng } : null,
+        mapPlace: picked?.display || '',
+      });
       router.push('/super-admin/villages');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('announce.failed'));
@@ -57,6 +86,29 @@ export default function NewVillagePage() {
       <h1 className="mb-4 text-xl font-bold text-slate-900">{t('super.addVillage')}</h1>
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-3xl bg-white p-4 shadow-card">
+        {/* Step one is finding the village, because that settles the spelling,
+            the district and the coordinates at once — all of which were
+            previously typed on trust. */}
+        <div>
+          <p className="label">
+            {t('search.label')} <span className="text-red-500">*</span>
+          </p>
+          <VillageSearch
+            picked={picked}
+            onPick={acceptPlace}
+            onClear={() => setPicked(null)}
+          />
+          {!picked && !manual && (
+            <button
+              type="button"
+              onClick={() => setManual(true)}
+              className="mt-2 text-xs font-semibold text-slate-500 underline"
+            >
+              {t('search.manual')}
+            </button>
+          )}
+        </div>
+
         <div>
           <label className="label" htmlFor="name">
             {t('super.fieldName')} <span className="text-red-500">*</span>

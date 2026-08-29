@@ -389,5 +389,18 @@
     "yourSarpanch": "Your Sarpanch",
     "contact": "Contact",
     "noSarpanch": "Sarpanch details have not been added yet."
+  },
+  "search": {
+    "label": "Search for the village",
+    "placeholder": "Type a village or town name…",
+    "hint": "Type the name, then pick the right place from the map.",
+    "searching": "Searching…",
+    "noResults": "No place found. Check the spelling, or add the district name.",
+    "results": "{n} places found",
+    "verified": "Verified against the map",
+    "change": "Change",
+    "openMaps": "Open in Google Maps",
+    "manual": "Not on the map? Enter it manually",
+    "offline": "Search could not run — check your connection, or enter it manually."
   }
 }

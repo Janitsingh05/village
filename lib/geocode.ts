@@ -90,3 +90,96 @@ export async function reverseGeocode(lat: number, lng: number, lang = 'hi'): Pro
     null
   );
 }
+
+/* ----------------------------- forward search ----------------------------- */
+
+export interface PlaceResult {
+  id: string;
+  /** Village / town name on its own. */
+  name: string;
+  district: string;
+  state: string;
+  /** Full line as the map service describes it. */
+  display: string;
+  lat: number;
+  lng: number;
+  /** village, town, city, hamlet … — worth showing so lookalikes are separable. */
+  kind: string;
+}
+
+/**
+ * Search Indian places by name, so a village is picked off the map rather than
+ * typed from memory. Restricted to India and biased towards settlements —
+ * onboarding a Gram Panchayat should not surface a restaurant of the same name.
+ */
+export async function searchPlaces(term: string, lang = 'hi'): Promise<PlaceResult[]> {
+  const q = term.trim();
+  if (q.length < 3) return [];
+
+  const data = await getJson(
+    'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8' +
+      '&countrycodes=in' +
+      '&q=' + encodeURIComponent(q) +
+      '&accept-language=' + encodeURIComponent(lang)
+  );
+  if (!Array.isArray(data)) return [];
+
+  // A settlement is what is being onboarded, so those come first; a district
+  // or tehsil sharing the name is still offered, just lower down.
+  const RANK: Record<string, number> = {
+    village: 0,
+    hamlet: 1,
+    town: 2,
+    city: 3,
+    suburb: 4,
+    municipality: 5,
+  };
+  const rankOf = (kind: string) => (kind in RANK ? RANK[kind] : 9);
+
+  const seen = new Set<string>();
+
+  return data
+    .map((row: any): PlaceResult | null => {
+      const a = row.address || {};
+      const name =
+        a.village || a.hamlet || a.town || a.city || a.suburb || a.municipality || row.name || '';
+      if (!name) return null;
+
+      return {
+        id: String(row.osm_type || '') + String(row.osm_id || row.place_id || ''),
+        name,
+        district: a.state_district || a.district || a.county || '',
+        state: a.state || '',
+        display: row.display_name || name,
+        lat: Number(row.lat),
+        lng: Number(row.lon),
+        kind: row.addresstype || row.type || '',
+      };
+    })
+    .filter((r): r is PlaceResult => r != null && Number.isFinite(r.lat) && Number.isFinite(r.lng))
+    .filter((r) => {
+      // The same settlement often comes back more than once from different
+      // OSM objects; one row per place is enough to choose from.
+      const key = [r.name, r.district, r.state].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => rankOf(a.kind) - rankOf(b.kind));
+}
+
+/** Keyless map preview — an <iframe src> centred on the point. */
+export function mapEmbedUrl(lat: number, lng: number, span = 0.02): string {
+  const bbox = [lng - span, lat - span / 2, lng + span, lat + span / 2].join(',');
+  return (
+    'https://www.openstreetmap.org/export/embed.html?bbox=' +
+    encodeURIComponent(bbox) +
+    '&layer=mapnik&marker=' +
+    encodeURIComponent(lat + ',' + lng)
+  );
+}
+
+/** For the "open in Google Maps" escape hatch, which needs no key either. */
+export function googleMapsUrl(lat: number, lng: number): string {
+  return 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng;
+}
