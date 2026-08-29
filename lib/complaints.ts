@@ -177,6 +177,7 @@ export async function createComplaint(
     location: {
       ward: input.ward,
       ...(input.lat != null ? { lat: input.lat, lng: input.lng } : {}),
+      ...(input.address ? { address: input.address } : {}),
     },
     status: 'pending' as ComplaintStatus,
     reportedBy: { name: input.reporterName.trim(), phone: input.reporterPhone.trim() },

@@ -47,6 +47,15 @@ service cloud.firestore {
         && request.resource.data.adminUserIds ==
              resource.data.adminUserIds.concat([request.auth.uid]);
 
+      // The admin maintaining their own details. Narrow on purpose: this must
+      // not become a way to edit the village itself or grant anyone access.
+      allow update: if isVillageAdmin(villageId)
+        && onlyChanged(['adminName', 'adminRole', 'adminPhotoUrl'])
+        && request.resource.data.adminName.size() <= 80
+        && request.resource.data.adminRole.size() <= 60
+        && (request.resource.data.adminPhotoUrl == null
+            || request.resource.data.adminPhotoUrl.size() < 60000);
+
       match /complaints/{complaintId} {
         allow read: if true;
 
@@ -66,7 +75,11 @@ service cloud.firestore {
               || request.resource.data.photoUrl.size() < 60000)
           && request.resource.data.photoCount is int
           && request.resource.data.photoCount >= 0
-          && request.resource.data.photoCount <= 3;
+          && request.resource.data.photoCount <= 3
+          // Resolved from the reporter's coordinates; bounded so it cannot be
+          // used to smuggle arbitrary text onto a public document.
+          && (!('address' in request.resource.data.location.keys())
+              || request.resource.data.location.address.size() <= 200);
 
         // Only the village's admins move a complaint along, and they may never
         // rewrite what the citizen reported.
@@ -113,6 +126,28 @@ service cloud.firestore {
               || request.resource.data.photoUrl.size() < 60000);
         allow delete: if isVillageAdmin(villageId);
       }
+    }
+
+    // Requests to administer a village.
+    //
+    // Anyone may file one, because a new Sarpanch has no account yet — but
+    // filing it grants nothing. Only a super admin can read these (they carry
+    // phone numbers), and only their approval puts a number on a village.
+    match /adminRequests/{requestId} {
+      allow read, update, delete: if isSuperAdmin();
+
+      allow create: if request.resource.data.status == 'pending'
+        // The village must actually exist, so a request cannot name a
+        // village into being.
+        && exists(/databases/$(database)/documents/villages/$(request.resource.data.villageId))
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() == 10
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.role.size() <= 60
+        && request.resource.data.villageName.size() <= 120
+        && request.resource.data.decidedAt == null;
     }
 
     match /users/{userId} {

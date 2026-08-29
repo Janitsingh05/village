@@ -100,7 +100,9 @@
     "photoTooLarge": "That photo is too large — please pick another.",
     "photoFailed": "Could not attach the photo, please try again.",
     "nameLabel": "Your name (optional)",
-    "photoLimitMulti": "{used}/{n} photos · max 5MB each"
+    "photoLimitMulti": "{used}/{n} photos · max 5MB each",
+    "gpsResolving": "Identifying the place…",
+    "gpsNoPlace": "Location captured, but the place name could not be identified"
   },
   "photo": {
     "camera": "Camera",
@@ -135,7 +137,8 @@
     "confirmResolved": "Problem is fixed",
     "feedbackThanks": "Thanks — your feedback has been recorded.",
     "shareCopied": "Link copied",
-    "title": "Complaint details"
+    "title": "Complaint details",
+    "addressLabel": "Detected place"
   },
   "admin": {
     "dashboardTitle": "Panchayat dashboard",
@@ -218,7 +221,8 @@
     "otpSendFailed": "Could not send an OTP to this number. Check it, or sign in with email/password.",
     "otpSlowHint": "This is taking a moment. If a security check (reCAPTCHA) appears, please complete it.",
     "menuHeading": "Panchayat menu",
-    "signedInAs": "Signed in: {phone}"
+    "signedInAs": "Signed in: {phone}",
+    "newHere": "New here? Register"
   },
   "nav": {
     "home": "Home",
@@ -289,7 +293,16 @@
     "empty": "No villages onboarded yet.",
     "complaintsCount": "{n} complaints",
     "fieldNameEn": "Name in English (optional)",
-    "fieldNameEnPlaceholder": "Rampura Gram Panchayat"
+    "fieldNameEnPlaceholder": "Rampura Gram Panchayat",
+    "requests": "Admin requests",
+    "requestsPending": "{n} pending",
+    "approve": "Approve",
+    "reject": "Reject",
+    "noRequests": "No requests yet.",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "statusPending": "Pending",
+    "decideFailed": "That could not be completed."
   },
   "setup": {
     "title": "Setup check",
@@ -334,5 +347,47 @@
     "starting": "Starting the camera…",
     "denied": "Camera permission was refused. Allow it in your browser settings, or pick a photo from the gallery.",
     "unavailable": "No camera found on this phone. Please choose from the gallery."
+  },
+  "register": {
+    "title": "Register with a Panchayat",
+    "subtitle": "New admins request access here",
+    "notice": "This request goes to the super admin. You can only sign in with this number once it is approved.",
+    "village": "Your village / society",
+    "villagePlaceholder": "— Choose a village —",
+    "name": "Your name",
+    "namePlaceholder": "Full name",
+    "role": "Your role",
+    "rolePlaceholder": "e.g. Sarpanch, Secretary, staff",
+    "phone": "Mobile number",
+    "phoneNote": "You will sign in with this number later.",
+    "submit": "Send request",
+    "sending": "Sending…",
+    "sentTitle": "Request sent",
+    "sentBody": "Once the super admin approves it, you can sign in with this number.",
+    "already": "A request from this number is already waiting. Please wait for approval.",
+    "failed": "Could not send the request, please try again.",
+    "noVillages": "No villages have been added yet, so a request cannot be sent.",
+    "backToLogin": "← Back to sign in"
+  },
+  "profile": {
+    "edit": "Edit profile",
+    "heading": "Your details",
+    "photo": "Your photo",
+    "photoNote": "Residents see this photo, so they know who to approach.",
+    "name": "Your name",
+    "namePlaceholder": "Full name",
+    "role": "Your role",
+    "rolePlaceholder": "e.g. Sarpanch, Secretary",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "✓ Saved",
+    "failed": "Could not save",
+    "cancel": "Cancel",
+    "removePhoto": "Remove photo"
+  },
+  "village": {
+    "yourSarpanch": "Your Sarpanch",
+    "contact": "Contact",
+    "noSarpanch": "Sarpanch details have not been added yet."
   }
 }

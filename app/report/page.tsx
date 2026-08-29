@@ -9,6 +9,7 @@ import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
 import { MAX_PHOTOS, wardOptions } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
+import { reverseGeocode, type Place } from '@/lib/geocode';
 import { rememberMe } from '@/lib/me';
 import { complaintHref } from '@/lib/route-id';
 import type { CategoryId } from '@/lib/types';
@@ -26,6 +27,8 @@ export default function ReportPage() {
   const [ward, setWard] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsState, setGpsState] = useState<'idle' | 'locating' | 'done' | 'denied'>('idle');
+  const [place, setPlace] = useState<Place | null>(null);
+  const [placeBusy, setPlaceBusy] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -40,9 +43,19 @@ export default function ReportPage() {
     }
     setGpsState('locating');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      async (pos) => {
+        const at = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCoords(at);
         setGpsState('done');
+
+        // Coordinates alone tell the Panchayat nothing, so resolve a readable
+        // place. A failure here is not fatal — the complaint keeps the fix.
+        setPlaceBusy(true);
+        try {
+          setPlace(await reverseGeocode(at.lat, at.lng, lang));
+        } finally {
+          setPlaceBusy(false);
+        }
       },
       () => {
         setGpsState('denied');
@@ -75,6 +88,7 @@ export default function ReportPage() {
         ward: ward || (coords ? 'GPS' : ''),
         lat: coords?.lat,
         lng: coords?.lng,
+        address: place?.display,
         reporterName: name.trim() || t('common.anon'),
         reporterPhone: phoneDigits,
       });
@@ -134,7 +148,16 @@ export default function ReportPage() {
                 selected={locMode === 'gps'}
                 onSelect={() => setLocMode('gps')}
                 title={t('report.gpsOption')}
-                sub={gpsState === 'done' ? t('report.gpsDone') : t('report.gpsOptionSub')}
+                sub={
+                  placeBusy
+                    ? t('report.gpsResolving')
+                    : place
+                      ? place.display
+                      : gpsState === 'done'
+                        ? t('report.gpsNoPlace')
+                        : t('report.gpsOptionSub')
+                }
+                highlight={Boolean(place)}
                 action={
                   <button
                     type="button"
@@ -238,12 +261,15 @@ function LocationOption({
   title,
   sub,
   action,
+  highlight = false,
 }: {
   selected: boolean;
   onSelect: () => void;
   title: string;
   sub: string;
   action?: React.ReactNode;
+  /** A resolved place is the answer, not a caption — show it as such. */
+  highlight?: boolean;
 }) {
   return (
     <div
@@ -267,7 +293,14 @@ function LocationOption({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-slate-900">{title}</span>
-        <span className="block truncate text-xs text-slate-500">{sub}</span>
+        <span
+          className={
+            'block text-xs ' +
+            (highlight ? 'font-semibold text-brand-700' : 'truncate text-slate-500')
+          }
+        >
+          {sub}
+        </span>
       </span>
       {action}
     </div>

@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav';
 import ComplaintCard from '@/components/ComplaintCard';
 import StatsCard from '@/components/StatsCard';
 import VillageArt from '@/components/VillageArt';
+import SarpanchCard from '@/components/SarpanchCard';
 import Icon from '@/components/Icon';
 import { subscribeToComplaints, computeStats } from '@/lib/complaints';
 import { useVillage } from '@/lib/village-context';
@@ -116,6 +117,10 @@ export default function HomePage() {
             sub={t('home.statPeopleSub')}
           />
         </section>
+
+        <div className="mt-4 px-4">
+          <SarpanchCard />
+        </div>
 
         {/* Recent complaints */}
         <section className="mt-5 px-4">

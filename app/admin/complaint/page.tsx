@@ -135,6 +135,14 @@ export default function AdminComplaintPage() {
               {dateTime(complaint.createdAt, lang)}
             </span>
           </p>
+          {complaint.location.address && (
+            // Resolved from the reporter's GPS — this is what tells the
+            // Panchayat where to actually send someone.
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-brand-700">
+              <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 truncate">{complaint.location.address}</span>
+            </p>
+          )}
           <a
             href={'tel:' + complaint.reportedBy.phone}
             className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700"

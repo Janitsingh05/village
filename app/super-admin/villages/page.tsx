@@ -35,6 +35,17 @@ export default function VillagesPage() {
         </Link>
       </div>
 
+      <Link
+        href="/super-admin/requests"
+        className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card transition active:scale-[0.99]"
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
+          <Icon name="user" className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1 font-semibold text-slate-900">{t('super.requests')}</span>
+        <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-slate-300" />
+      </Link>
+
       {rows === null ? (
         <div className="space-y-2">
           {[0, 1].map((i) => (

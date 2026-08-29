@@ -36,6 +36,8 @@ export interface Complaint {
     ward: string;
     lat?: number;
     lng?: number;
+    /** Readable place resolved from the coordinates, e.g. "रामपुरा, सीकर". */
+    address?: string;
   };
   status: ComplaintStatus;
   reportedBy: {
@@ -59,6 +61,7 @@ export interface NewComplaintInput {
   ward: string;
   lat?: number;
   lng?: number;
+  address?: string;
   reporterName: string;
   reporterPhone: string;
 }
@@ -85,7 +88,34 @@ export interface Village {
   district: string;
   address: string;
   adminName: string;
+  /** What the villagers should call them, e.g. सरपंच / सचिव. */
+  adminRole: string;
+  /** Small inline portrait, shown to residents so they know who to approach. */
+  adminPhotoUrl: string | null;
   adminPhone: string;
+  /** Extra admins approved after onboarding, by phone number. */
+  adminPhones: string[];
   adminUserIds: string[];
   createdAt: number;
+}
+
+export type AdminRequestStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * Someone asking to administer a village.
+ *
+ * Registration cannot grant admin rights directly — anyone could then sign up
+ * and start closing complaints. It records a request that a super admin has to
+ * approve, and only that approval puts the number on the village.
+ */
+export interface AdminRequest {
+  id: string;
+  villageId: string;
+  villageName: string;
+  name: string;
+  phone: string;
+  role: string;
+  status: AdminRequestStatus;
+  createdAt: number;
+  decidedAt: number | null;
 }

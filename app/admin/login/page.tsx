@@ -167,9 +167,17 @@ export default function AdminLoginPage() {
       )}
 
 
-      <Link href="/" className="mt-6 block text-center text-sm text-slate-500">
-        {t('admin.backToPublic')}
-      </Link>
+      <div className="mt-6 space-y-3 text-center">
+        <Link
+          href="/admin/register"
+          className="block rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700"
+        >
+          {t('admin.newHere')}
+        </Link>
+        <Link href="/" className="block text-sm text-slate-500">
+          {t('admin.backToPublic')}
+        </Link>
+      </div>
     </main>
   );
 }

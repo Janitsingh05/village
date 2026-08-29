@@ -4,6 +4,7 @@ import Link from 'next/link';
 import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/Icon';
+import SarpanchCard from '@/components/SarpanchCard';
 import LanguageToggle from '@/components/LanguageToggle';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
@@ -26,6 +27,8 @@ export default function MorePage() {
             </p>
           )}
         </div>
+
+        <SarpanchCard />
 
         <div className="flex items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-card">
           <span className="font-semibold text-slate-800">{t('more.language')}</span>

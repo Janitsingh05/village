@@ -37,7 +37,10 @@ export async function listVillages(): Promise<Village[]> {
       district: data.district ?? '',
       address: data.address ?? '',
       adminName: data.adminName ?? '',
+    adminRole: data.adminRole ?? '',
+    adminPhotoUrl: data.adminPhotoUrl ?? null,
       adminPhone: data.adminPhone ?? '',
+    adminPhones: data.adminPhones ?? [],
       adminUserIds: data.adminUserIds ?? [],
       createdAt: toMillis(data.createdAt),
     };
@@ -97,7 +100,10 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
     district: input.district,
     address: input.address.trim(),
     adminName: input.adminName.trim(),
+    adminRole: '',
+    adminPhotoUrl: null,
     adminPhone: input.adminPhone.replace(/\D/g, '').slice(-10),
+    adminPhones: [],
     // The admin's Auth UID is attached the first time they sign in; the
     // Firestore rules read this array to decide who may update complaints.
     adminUserIds: [],
@@ -117,7 +123,10 @@ function fromDoc(id: string, data: Record<string, any>): Village {
     district: data.district ?? '',
     address: data.address ?? '',
     adminName: data.adminName ?? '',
+    adminRole: data.adminRole ?? '',
+    adminPhotoUrl: data.adminPhotoUrl ?? null,
     adminPhone: data.adminPhone ?? '',
+    adminPhones: data.adminPhones ?? [],
     adminUserIds: data.adminUserIds ?? [],
     createdAt: toMillis(data.createdAt),
   };
@@ -146,10 +155,15 @@ export async function claimVillageForAdmin(uid: string, phone: string): Promise<
   const digits = (phone || '').replace(/\D/g, '').slice(-10);
   if (!digits) return null;
 
-  const snap = await getDocs(query(col(), where('adminPhone', '==', digits)));
-  if (snap.empty) return null;
+  // Onboarding sets adminPhone; an approved request adds to adminPhones. Check
+  // both, or an approved admin would sign in and find themselves unlinked.
+  const [primary, extra] = await Promise.all([
+    getDocs(query(col(), where('adminPhone', '==', digits))),
+    getDocs(query(col(), where('adminPhones', 'array-contains', digits))),
+  ]);
 
-  const match = snap.docs[0];
+  const match = primary.docs[0] || extra.docs[0];
+  if (!match) return null;
   const existing: string[] = match.data().adminUserIds ?? [];
 
   if (!existing.includes(uid)) {
@@ -165,4 +179,24 @@ export async function claimVillageForAdmin(uid: string, phone: string): Promise<
   }
 
   return match.id;
+}
+
+/**
+ * The admin editing their own details.
+ *
+ * Deliberately narrow: name, role and portrait only. The rules enforce the same
+ * list, so an admin cannot quietly rewrite the village or add themselves
+ * elsewhere by going through this path.
+ */
+export async function updateAdminProfile(
+  villageId: string,
+  input: { adminName: string; adminRole: string; adminPhotoUrl?: string | null }
+): Promise<void> {
+  const patch: Record<string, unknown> = {
+    adminName: input.adminName.trim(),
+    adminRole: input.adminRole.trim(),
+  };
+  if (input.adminPhotoUrl !== undefined) patch.adminPhotoUrl = input.adminPhotoUrl;
+
+  await updateDoc(doc(col(), villageId), patch);
 }

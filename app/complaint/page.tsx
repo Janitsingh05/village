@@ -203,6 +203,13 @@ export default function ComplaintDetailPage() {
               value={wardLabel(complaint.location.ward, lang) || t('common.none')}
             />
             <Meta icon="doc" label={t('detail.categoryLabel')} value={catName} />
+            {complaint.location.address && (
+              <Meta
+                icon="pin"
+                label={t('detail.addressLabel')}
+                value={complaint.location.address}
+              />
+            )}
             {complaint.location.lat != null && (
               <a
                 className="mt-2 inline-block text-sm font-semibold text-brand-700 underline"

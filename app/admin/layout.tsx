@@ -15,7 +15,7 @@ import { useI18n } from '@/lib/i18n';
 import { isOneOf } from '@/lib/route-match';
 
 /** Routes inside /admin that must stay reachable while signed out. */
-const PUBLIC_ROUTES = ['/admin/login', '/admin/verify'];
+const PUBLIC_ROUTES = ['/admin/login', '/admin/verify', '/admin/register'];
 
 /**
  * Client-side guard for the admin area. Firestore rules are the real
