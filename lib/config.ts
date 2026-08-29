@@ -36,9 +36,18 @@ const WARDS_HI = splitList(
     'वार्ड 1,वार्ड 2,वार्ड 3,वार्ड 4,वार्ड 5,मुख्य बाज़ार,स्कूल के पास,मंदिर के पास'
 );
 
-// Optional parallel list. These are local place names, so an English list is
-// nice-to-have; without one the Hindi names show in both languages.
-const WARDS_EN = splitList(process.env.NEXT_PUBLIC_WARDS_EN || '');
+/**
+ * English labels for the same wards, matched by position.
+ *
+ * Defaulted here rather than left to an environment variable: a host that was
+ * configured before this existed would otherwise show Devanagari ward names in
+ * English mode, and that drift is invisible until someone switches language.
+ * NEXT_PUBLIC_WARDS_EN still overrides, for a village with its own names.
+ */
+const WARDS_EN = splitList(
+  process.env.NEXT_PUBLIC_WARDS_EN ||
+    'Ward 1,Ward 2,Ward 3,Ward 4,Ward 5,Main Market,Near the School,Near the Temple'
+);
 
 export const WARDS = WARDS_HI;
 

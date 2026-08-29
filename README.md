@@ -53,34 +53,37 @@ complaints before anything costs money.
 
 ### Deploying
 
-The app is a **static export** (`output: 'export'`), because every page fetches
-its own data from Firestore in the browser. It runs on any static host.
+**The app runs on Vercel.** https://village-psi-eight.vercel.app
 
-Two things every host needs:
+It is a static export (`output: 'export'`), because every page fetches its own
+data from Firestore in the browser — there is nothing for a server to do.
+Pushing to `main` is the whole deploy: Vercel builds and releases on its own.
 
-1. **The `NEXT_PUBLIC_FIREBASE_*` variables.** `.env.local` is gitignored, so a
-   host building from the repo has no idea what they are, and the build bakes
-   in the "Firebase is not configured" screen. They are read at **build** time —
-   after adding them you must **redeploy**, not just restart.
-2. **A rewrite for the complaint pages.** `/complaint/<id>` has no file of its
-   own; it is one exported page that reads the id from the URL. `firebase.json`
-   covers Firebase Hosting and `vercel.json` covers Vercel. Without it, a shared
-   complaint link 404s.
+Firebase is still the backend (Firestore + Auth), but **not** the host.
+`gaoconnect-3965b.web.app` now 302s to Vercel so older links keep working;
+`hosting-redirect/` holds only that redirect page.
 
-And one Firebase setting: Authentication → Settings → **Authorized domains**
-must list the deploy domain (e.g. `your-app.vercel.app`), or phone OTP fails
-there. `*.web.app` and `*.firebaseapp.com` are allowed by default, which is why
-Firebase Hosting needs no such step.
+Two things Vercel needs, both one-time:
+
+1. **The `NEXT_PUBLIC_FIREBASE_*` variables**, under Settings → Environment
+   Variables. `.env.local` is gitignored, so the build has no other source. They
+   are read at **build** time — after changing them you must **redeploy**, not
+   just restart. Without them the build ships the "Firebase is not configured"
+   screen.
+2. **The deploy domain in Firebase Auth → Settings → Authorized domains**, or
+   phone OTP is refused there.
+
+Anything that must differ per village belongs in the village record, not in
+environment variables — a host configured before a variable existed silently
+serves stale behaviour, which is how the English ward labels went missing on
+Vercel while working locally.
 
 ```bash
-# Firebase Hosting — free, no billing account, same project as the database
-npm run build && npx firebase deploy --only hosting
+npm run build          # sanity-check the export locally
+git push               # this is the deploy
 
-# Vercel — import the repo at vercel.com/new, then add the env vars and redeploy
+npx firebase deploy --only firestore:rules   # database rules, when they change
 ```
-
-`NEXT_PUBLIC_*` values are visible in the browser bundle. That is expected for
-Firebase web config; the real protection is `firestore.rules`.
 
 ## Routes
 
