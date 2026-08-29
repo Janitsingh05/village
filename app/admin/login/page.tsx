@@ -27,8 +27,11 @@ export default function AdminLoginPage() {
     try {
       await startPhoneSignIn(phone);
       router.push('/admin/verify');
-    } catch {
-      setError(t('admin.badCredentials'));
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      // Say which of the two it was: a wrong number is the user's to fix,
+      // a timed-out request is not.
+      setError(code === 'OTP_TIMEOUT' ? t('admin.otpTimeout') : t('admin.otpSendFailed'));
       setBusy(false);
     }
   }

@@ -216,7 +216,9 @@
     "navComplaints": "Complaints",
     "navAnnounce": "Notices",
     "navProfile": "Profile",
-    "notLinked": "This mobile number is not linked to any village yet. Ask the super admin to add it — until then you cannot update complaints."
+    "notLinked": "This mobile number is not linked to any village yet. Ask the super admin to add it — until then you cannot update complaints.",
+    "otpTimeout": "Could not send the OTP — check your connection and try again.",
+    "otpSendFailed": "Could not send an OTP to this number. Check it, or sign in with email/password."
   },
   "nav": {
     "home": "Home",
