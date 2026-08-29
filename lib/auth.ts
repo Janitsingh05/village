@@ -76,10 +76,18 @@ function resetVerifier() {
  * How long to wait before giving up on the OTP request.
  *
  * signInWithPhoneNumber can hang indefinitely — a reCAPTCHA challenge that is
- * never completed never settles the promise. Without this the Sarpanch is left
- * staring at "sending…" with no error and no way to retry.
+ * never completed never settles the promise — so some limit is needed or the
+ * Sarpanch stares at "sending…" with no error and no way to retry.
+ *
+ * But reCAPTCHA sometimes shows a picture puzzle, and solving one takes real
+ * time. A 60s cap would have cancelled a legitimate attempt mid-puzzle and
+ * told the user it failed. Hence a deliberately generous ceiling here, paired
+ * with an on-screen hint (see the login page) so the wait is never silent.
  */
-const OTP_REQUEST_TIMEOUT_MS = 60_000;
+const OTP_REQUEST_TIMEOUT_MS = 150_000;
+
+/** After this long, tell the user a challenge may be waiting for them. */
+export const OTP_SLOW_HINT_MS = 12_000;
 
 /** Step 1 — send the code. `phone` is 10 digits, India assumed. */
 export async function startPhoneSignIn(phone: string): Promise<void> {

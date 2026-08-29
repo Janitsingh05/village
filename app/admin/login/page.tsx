@@ -6,7 +6,7 @@ import { useState } from 'react';
 import LanguageToggle from '@/components/LanguageToggle';
 import VillageArt from '@/components/VillageArt';
 import Logo from '@/components/Logo';
-import { signIn, startPhoneSignIn } from '@/lib/auth';
+import { signIn, startPhoneSignIn, OTP_SLOW_HINT_MS } from '@/lib/auth';
 import { useI18n } from '@/lib/i18n';
 
 export default function AdminLoginPage() {
@@ -18,12 +18,17 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function sendOtp(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setSlow(false);
+    // reCAPTCHA can put a picture puzzle in front of the user. Say so instead
+    // of leaving them wondering whether the button worked.
+    const hint = setTimeout(() => setSlow(true), OTP_SLOW_HINT_MS);
     try {
       await startPhoneSignIn(phone);
       router.push('/admin/verify');
@@ -33,6 +38,9 @@ export default function AdminLoginPage() {
       // a timed-out request is not.
       setError(code === 'OTP_TIMEOUT' ? t('admin.otpTimeout') : t('admin.otpSendFailed'));
       setBusy(false);
+    } finally {
+      clearTimeout(hint);
+      setSlow(false);
     }
   }
 
@@ -93,6 +101,12 @@ export default function AdminLoginPage() {
           <button type="submit" disabled={phone.length !== 10 || busy} className="btn-primary">
             {busy ? t('report.submitting') : t('admin.sendOtp')}
           </button>
+
+          {slow && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {t('admin.otpSlowHint')}
+            </p>
+          )}
 
           <div className="flex items-center gap-3 py-1">
             <span className="h-px flex-1 bg-slate-200" />
