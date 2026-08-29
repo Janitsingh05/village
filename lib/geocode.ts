@@ -57,7 +57,10 @@ async function fromNominatim(lat: number, lng: number, lang: string): Promise<Pl
   // take the first that exists rather than assuming one field.
   return compose(
     a.village || a.hamlet || a.town || a.suburb || a.city || a.municipality || '',
-    a.county || a.state_district || a.district || '',
+    // state_district is the administrative district ("सीकर"); county often
+    // holds the tehsil ("Sikar Tehsil"), which is both narrower and usually
+    // untranslated, so prefer the district.
+    a.state_district || a.district || a.county || '',
     a.state || ''
   );
 }
