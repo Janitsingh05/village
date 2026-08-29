@@ -15,59 +15,72 @@ cp .env.local.example .env.local   # already done for you
 npm run dev                        # http://localhost:3000
 ```
 
-### Demo mode (no backend needed)
+### Firebase setup
 
-With the Firebase keys in `.env.local` left blank, the app stores complaints in
-the browser's **localStorage** and seeds three sample complaints. The full
-citizen → admin loop works offline — good for showing a Sarpanch on a laptop.
+There is no offline/demo mode: Firebase is the only backend, and without keys
+the app shows a setup screen rather than pretending to work. A villager filing
+a complaint the Panchayat can never see is worse than an honest error.
 
-Admin sign-in in demo mode: `admin@gaon.local` / `gaon1234`
-
-> Demo data lives in one browser only. Nothing syncs between devices until
-> Firebase is wired up.
-
-### Going live with Firebase
-
-1. Create a Firebase project → add a **Web app** → copy the config into `.env.local`.
-2. Enable **Firestore**, **Storage**, and **Authentication → Phone** (plus
-   Email/Password if you want the fallback admin login).
-3. Bootstrap the two documents that cannot be created from inside the app,
-   because each one is what grants the permission needed to create it:
+1. Create a project at console.firebase.google.com. Enable **Firestore** and
+   **Authentication → Phone**. Cloud Storage is *not* needed — see below.
+2. Project settings → Your apps → Web app → copy the config into `.env.local`.
+3. Create the village and super-admin documents, which cannot be made from
+   inside the app because each one grants the permission needed to create it:
 
    ```bash
-   # Firebase console -> Project settings -> Service accounts -> Generate new private key
+   # Project settings -> Service accounts -> Generate new private key
    npm run bootstrap -- --key ./serviceAccount.json      --admin-phone 98XXXXXXXX --admin-name "सरपंच जी"      --state Rajasthan --district Sikar
    ```
 
-   It prints what it will write and asks before touching anything. Add
-   `--superadmin-uid <uid>` to also grant yourself super-admin.
-4. Deploy the rules:
+4. `firebase deploy --only firestore:rules`
+5. Sign in at `/admin/login` with that number — the village links itself, because
+   the admin's Auth UID does not exist until this moment.
+6. Open `/admin/setup` and confirm every check is green.
 
-   ```bash
-   firebase deploy --only firestore:rules,storage
-   ```
-5. Sign in at `/admin/login` with that phone number. **The village links itself**
-   — the admin's Auth UID does not exist until this moment, so the app appends
-   it to `adminUserIds` on first sign-in (the rules allow only that one field,
-   only their own UID, and only on the village naming their verified number).
-6. Open **`/admin/setup`** and confirm every check is green before handing the
-   app to anyone.
+While testing, add the number under Authentication → Sign-in method → Phone →
+**Phone numbers for testing** with a fixed code. Firebase then skips both
+reCAPTCHA and the SMS.
 
-Restart `npm run dev` — the app leaves demo mode automatically once real keys
-are present.
+### Why photos are not in Cloud Storage
+
+Storage now requires a billing account on new projects, which a village pilot
+should not need. Photos live in Firestore instead, split in two so neither the
+free tier nor a 3G connection suffers: a ~25 KB thumbnail inline on the
+complaint, which is all the feed loads, and the full image in its own
+`media/{kind}` document fetched only when someone opens the complaint. At
+roughly 30 KB per feed row against 1 GiB free, that is a few thousand
+complaints before anything costs money.
 
 ### Deploying
 
-Push to GitHub, then import the repo at [vercel.com/new](https://vercel.com/new).
-Next.js is detected automatically; no build settings to change.
+The app is a **static export** (`output: 'export'`), because every page fetches
+its own data from Firestore in the browser. It runs on any static host.
 
-Add the `NEXT_PUBLIC_*` values from `.env.local` under **Environment Variables**
-— that file is gitignored, so Vercel has no other way to know them. Miss this
-and the live site silently runs in demo mode, where each visitor's complaints
-save only to their own browser and the Sarpanch sees nothing.
+Two things every host needs:
+
+1. **The `NEXT_PUBLIC_FIREBASE_*` variables.** `.env.local` is gitignored, so a
+   host building from the repo has no idea what they are, and the build bakes
+   in the "Firebase is not configured" screen. They are read at **build** time —
+   after adding them you must **redeploy**, not just restart.
+2. **A rewrite for the complaint pages.** `/complaint/<id>` has no file of its
+   own; it is one exported page that reads the id from the URL. `firebase.json`
+   covers Firebase Hosting and `vercel.json` covers Vercel. Without it, a shared
+   complaint link 404s.
+
+And one Firebase setting: Authentication → Settings → **Authorized domains**
+must list the deploy domain (e.g. `your-app.vercel.app`), or phone OTP fails
+there. `*.web.app` and `*.firebaseapp.com` are allowed by default, which is why
+Firebase Hosting needs no such step.
+
+```bash
+# Firebase Hosting — free, no billing account, same project as the database
+npm run build && npx firebase deploy --only hosting
+
+# Vercel — import the repo at vercel.com/new, then add the env vars and redeploy
+```
 
 `NEXT_PUBLIC_*` values are visible in the browser bundle. That is expected for
-Firebase web config; the actual protection is `firestore.rules`.
+Firebase web config; the real protection is `firestore.rules`.
 
 ## Routes
 
@@ -142,7 +155,7 @@ a UI convenience:
 app/            routes (App Router, all client components)
 components/     ComplaintCard, StatusBadge, CategoryPicker, PhotoUpload, Navbar
 lib/            firebase, complaints (data layer), auth, config, imageCompress
-lib/demoStore   localStorage stand-in used when Firebase keys are absent
+lib/tenant      resolves which village this session is looking at
 public/         PWA manifest + icons
 ```
 
@@ -157,8 +170,8 @@ Every read and write goes through `villages/{villageId}/…`, resolved by
    claims their phone number
 3. `NEXT_PUBLIC_VILLAGE_ID`, the pilot default
 
-Demo mode enforces the same scoping, so an onboarded village starts empty
-instead of inheriting the pilot's sample data.
+A village onboarded through the super-admin screen therefore starts empty,
+with no access to any other village's complaints.
 
 ## Offline behaviour
 

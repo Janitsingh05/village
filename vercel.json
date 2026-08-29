@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/complaint/:path*",
+      "destination": "/complaint/index.html"
+    },
+    {
+      "source": "/admin/complaint/:path*",
+      "destination": "/admin/complaint/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}
