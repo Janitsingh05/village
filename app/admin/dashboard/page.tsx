@@ -38,6 +38,11 @@ export default function AdminDashboardPage() {
     return (rows || []).filter((c) => c.createdAt >= cutoff);
   }, [rows, period]);
 
+  // Two sets on purpose: "total" means everything ever, while the other tiles
+  // answer for the period the admin picked. Running the month-scoped figures
+  // over an already-period-filtered list double-counted the window and made
+  // "this week" drop complaints at the start of a month.
+  const allTime = useMemo(() => computeStats(rows || []), [rows]);
   const stats = useMemo(() => computeStats(scoped), [scoped]);
 
   const topCategories = useMemo(() => {
@@ -63,8 +68,8 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-2">
-        <StatsCard icon="doc" tone="amber" value={String(stats.total)} label={t('admin.statTotal')} />
-        <StatsCard icon="clock" tone="blue" value={String(stats.newThisMonth)} label={t('admin.statNew')} />
+        <StatsCard icon="doc" tone="amber" value={String(allTime.total)} label={t('admin.statTotal')} />
+        <StatsCard icon="clock" tone="blue" value={String(stats.total)} label={t('admin.statNew')} />
         <StatsCard
           icon="checkCircle"
           tone="green"

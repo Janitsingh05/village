@@ -27,8 +27,14 @@ export default function MyComplaintsPage() {
     );
   }, []);
 
+  // An empty phone means this device has never filed anything. Say so directly
+  // rather than relying on the filter happening to match nothing.
   const mine =
-    phone === null || rows === null ? null : rows.filter((c) => c.reportedBy.phone === phone);
+    phone === null || rows === null
+      ? null
+      : phone === ''
+        ? []
+        : rows.filter((c) => c.reportedBy.phone === phone);
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-24">

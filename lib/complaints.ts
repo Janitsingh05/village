@@ -231,10 +231,23 @@ export interface ComplaintStats {
   /** Filed within the current calendar month. */
   newThisMonth: number;
   resolvedThisMonth: number;
+  /** Averaged over every resolved complaint, not just this month. */
   avgResolutionDays: number | null;
   topCategory: string | null;
   /** Distinct phone numbers that have ever filed — "residents taking part". */
   uniqueReporters: number;
+}
+
+/**
+ * When a complaint was actually marked resolved.
+ *
+ * Deliberately not updatedAt: that moves on any write, including a citizen
+ * tapping "the problem is fixed" months later, which would drag an old
+ * complaint into this month's resolved count.
+ */
+function resolvedAt(c: Complaint): number | null {
+  const event = [...c.timeline].reverse().find((t) => t.status === 'resolved');
+  return event ? event.at : null;
 }
 
 export function computeStats(rows: Complaint[]): ComplaintStats {
@@ -246,8 +259,8 @@ export function computeStats(rows: Complaint[]): ComplaintStats {
 
   const durations = resolved
     .map((c) => {
-      const done = [...c.timeline].reverse().find((t) => t.status === 'resolved');
-      return done ? done.at - c.createdAt : null;
+      const done = resolvedAt(c);
+      return done == null ? null : done - c.createdAt;
     })
     .filter((d): d is number => d != null && d >= 0);
 
@@ -266,7 +279,10 @@ export function computeStats(rows: Complaint[]): ComplaintStats {
     resolved: resolved.length,
     closed: rows.filter((c) => c.status === 'closed').length,
     newThisMonth: rows.filter((c) => c.createdAt >= monthStart.getTime()).length,
-    resolvedThisMonth: resolved.filter((c) => c.updatedAt >= monthStart.getTime()).length,
+    resolvedThisMonth: resolved.filter((c) => {
+      const done = resolvedAt(c);
+      return done != null && done >= monthStart.getTime();
+    }).length,
     avgResolutionDays: durations.length
       ? durations.reduce((a, b) => a + b, 0) / durations.length / 86400000
       : null,
