@@ -32,6 +32,7 @@ export async function listVillages(): Promise<Village[]> {
     return {
       id: d.id,
       name: data.name ?? '',
+    nameEn: data.nameEn ?? '',
       state: data.state ?? '',
       district: data.district ?? '',
       address: data.address ?? '',
@@ -45,6 +46,8 @@ export async function listVillages(): Promise<Village[]> {
 
 export interface NewVillageInput {
   name: string;
+  /** Optional English name so the language toggle can switch it. */
+  nameEn?: string;
   state: string;
   district: string;
   address: string;
@@ -89,6 +92,7 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
   const record: Village = {
     id,
     name: input.name.trim(),
+    nameEn: (input.nameEn || '').trim(),
     state: input.state,
     district: input.district,
     address: input.address.trim(),
@@ -108,6 +112,7 @@ function fromDoc(id: string, data: Record<string, any>): Village {
   return {
     id,
     name: data.name ?? '',
+    nameEn: data.nameEn ?? '',
     state: data.state ?? '',
     district: data.district ?? '',
     address: data.address ?? '',

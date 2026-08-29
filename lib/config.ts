@@ -99,3 +99,6 @@ export function complaintRef(id: string, createdAt: number): string {
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 10000;
   return 'GC-' + stamp + '-' + String(hash).padStart(4, '0');
 }
+
+/** A villager can show the problem from a few angles without bloating the feed. */
+export const MAX_PHOTOS = 3;

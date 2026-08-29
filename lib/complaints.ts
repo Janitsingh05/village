@@ -13,7 +13,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { complaintRef } from './config';
+import { MAX_PHOTOS, complaintRef } from './config';
 import { activeVillageId } from './tenant';
 import { preparePhoto } from './imageCompress';
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
@@ -40,6 +40,7 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
     category: data.category,
     description: data.description ?? '',
     photoUrl: data.photoUrl ?? null,
+    photoCount: typeof data.photoCount === 'number' ? data.photoCount : data.photoUrl ? 1 : 0,
     location: data.location ?? { ward: '' },
     status: (data.status as ComplaintStatus) ?? 'pending',
     reportedBy: data.reportedBy ?? { name: '', phone: '' },
@@ -60,7 +61,8 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
  * in its own doc that is only fetched when someone opens the complaint. See
  * lib/imageCompress.ts for why they are not in Cloud Storage.
  */
-function mediaDoc(villageId: string, complaintId: string, kind: 'photo' | 'proof') {
+/** media keys: 'photo-0' … 'photo-2' for the citizen, 'proof' for the admin. */
+function mediaDoc(villageId: string, complaintId: string, kind: string) {
   return doc(complaintsCol(villageId), complaintId, 'media', kind);
 }
 
@@ -83,11 +85,29 @@ async function storePhoto(
 /** Full-size image for the detail view; null when there is none. */
 export async function getFullPhoto(
   complaintId: string,
-  kind: 'photo' | 'proof' = 'photo',
+  kind = 'photo-0',
   villageId = activeVillageId()
 ): Promise<string | null> {
   const snap = await getDoc(mediaDoc(villageId, complaintId, kind));
   return snap.exists() ? (snap.data().data as string) : null;
+}
+
+/**
+ * Every photo on a complaint, in order. Missing entries are dropped rather
+ * than failing the lot — one unreadable image should not blank the gallery.
+ */
+export async function getComplaintPhotos(
+  complaintId: string,
+  count: number,
+  villageId = activeVillageId()
+): Promise<string[]> {
+  const wanted = Math.min(Math.max(count, 0), MAX_PHOTOS);
+  const results = await Promise.all(
+    Array.from({ length: wanted }, (_, i) =>
+      getFullPhoto(complaintId, 'photo-' + i, villageId).catch(() => null)
+    )
+  );
+  return results.filter((d): d is string => Boolean(d));
 }
 
 /** Newest-first list of complaints for the village. */
@@ -130,15 +150,19 @@ export async function createComplaint(
   const docRef = doc(complaintsCol(villageId));
   const now = Date.now();
 
+  // Compress everything up front: an unusable photo is caught before the
+  // complaint is written, and the thumbnail must be in the first write because
+  // the rules let a citizen create a complaint but never update one.
   let thumb: string | null = null;
-  let full: string | null = null;
-  if (input.photoFile) {
+  const fulls: string[] = [];
+
+  for (const file of input.photoFiles.slice(0, MAX_PHOTOS)) {
     try {
-      const prepared = await preparePhoto(input.photoFile);
-      thumb = prepared.thumb;
-      full = prepared.full;
+      const prepared = await preparePhoto(file);
+      if (thumb === null) thumb = prepared.thumb;
+      fulls.push(prepared.full);
     } catch {
-      // An unusable photo must not cost the citizen their complaint.
+      // Skip this one; a bad photo must not cost the citizen their complaint.
     }
   }
 
@@ -146,7 +170,10 @@ export async function createComplaint(
     villageId,
     category: input.category,
     description: input.description.trim(),
+    // Only the first thumbnail rides on the complaint — the feed loads these,
+    // so putting all of them here would make the list heavy on a 3G connection.
     photoUrl: thumb,
+    photoCount: fulls.length,
     location: {
       ward: input.ward,
       ...(input.lat != null ? { lat: input.lat, lng: input.lng } : {}),
@@ -161,16 +188,16 @@ export async function createComplaint(
     updatedAt: serverTimestamp(),
   });
 
-  if (full) {
-    try {
-      await setDoc(mediaDoc(villageId, docRef.id, 'photo'), {
-        data: full,
+  await Promise.all(
+    fulls.map((data, i) =>
+      setDoc(mediaDoc(villageId, docRef.id, 'photo-' + i), {
+        data,
         createdAt: serverTimestamp(),
-      });
-    } catch {
-      // The feed still shows the thumbnail; only the full view is missing.
-    }
-  }
+      }).catch(() => {
+        // The feed still shows the thumbnail; only the full view loses one.
+      })
+    )
+  );
 
   return docRef.id;
 }

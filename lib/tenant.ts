@@ -21,6 +21,22 @@ let cached: string | null = null;
 export function activeVillageId(): string {
   if (typeof window === 'undefined') return VILLAGE_ID;
   if (cached) return cached;
+
+  // Read ?v= here rather than in a provider effect. React runs a child's
+  // effects before its parent's, so a page that subscribes to Firestore on
+  // mount would otherwise query the previous village and never re-subscribe —
+  // which made a per-village link silently show the wrong data.
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('v');
+    if (fromUrl) {
+      cached = fromUrl;
+      window.localStorage.setItem(KEY, fromUrl);
+      return cached;
+    }
+  } catch {
+    /* fall through to the stored value */
+  }
+
   try {
     cached = window.localStorage.getItem(KEY) || VILLAGE_ID;
   } catch {
@@ -49,11 +65,9 @@ export function clearActiveVillage(): void {
 }
 
 /**
- * Pick up ?v=<id> once on load so a village can be handed out as a plain link
- * (or a QR code on a notice board) without any login.
+ * Kept for the provider to call; activeVillageId() already honours ?v= on its
+ * first read, so this only ensures the value is persisted.
  */
 export function adoptVillageFromUrl(): void {
-  if (typeof window === 'undefined') return;
-  const fromUrl = new URLSearchParams(window.location.search).get('v');
-  if (fromUrl) setActiveVillage(fromUrl);
+  activeVillageId();
 }

@@ -74,7 +74,7 @@
     "gpsLocating": "📍 जगह ढूँढ रहे हैं…",
     "gpsDone": "✅ GPS जगह जुड़ गई",
     "gpsDenied": "⚠️ GPS नहीं मिला — वार्ड चुन लें",
-    "step5": "5. आपका नाम",
+    "step5": "5. आपकी जानकारी",
     "namePlaceholder": "नाम",
     "phoneLabel": "मोबाइल नंबर",
     "phonePlaceholder": "10 अंकों का नंबर",
@@ -100,7 +100,9 @@
     "submitNew": "शिकायत सबमिट करें",
     "footerNote": "आपकी जानकारी सुरक्षित है और केवल आधिकारिक उपयोग के लिए है।",
     "photoTooLarge": "यह फ़ोटो बहुत बड़ी है, दूसरी चुनें।",
-    "photoFailed": "फ़ोटो नहीं जुड़ सकी, दोबारा कोशिश करें।"
+    "photoFailed": "फ़ोटो नहीं जुड़ सकी, दोबारा कोशिश करें।",
+    "nameLabel": "आपका नाम (वैकल्पिक)",
+    "photoLimitMulti": "{used}/{n} फ़ोटो · हर फ़ोटो अधिकतम 5MB"
   },
   "photo": {
     "camera": "कैमरा",
@@ -282,7 +284,9 @@
     "submit": "गाँव / सोसाइटी जोड़ें",
     "created": "गाँव जोड़ दिया गया",
     "empty": "अभी कोई गाँव जोड़ा नहीं गया।",
-    "complaintsCount": "{n} शिकायतें"
+    "complaintsCount": "{n} शिकायतें",
+    "fieldNameEn": "नाम अंग्रेज़ी में (वैकल्पिक)",
+    "fieldNameEnPlaceholder": "Rampura Gram Panchayat"
   },
   "setup": {
     "title": "सेटअप जाँच",

@@ -28,7 +28,10 @@ export interface Complaint {
   villageId: string;
   category: CategoryId;
   description: string;
+  /** Thumbnail of the first photo — the only image the feed loads. */
   photoUrl: string | null;
+  /** How many full images exist at media/photo-0 … media/photo-(n-1). */
+  photoCount: number;
   location: {
     ward: string;
     lat?: number;
@@ -52,7 +55,7 @@ export interface Complaint {
 export interface NewComplaintInput {
   category: CategoryId;
   description: string;
-  photoFile: File | null;
+  photoFiles: File[];
   ward: string;
   lat?: number;
   lng?: number;
@@ -76,6 +79,8 @@ export interface Announcement {
 export interface Village {
   id: string;
   name: string;
+  /** Optional English name; without it the primary name shows in both languages. */
+  nameEn: string;
   state: string;
   district: string;
   address: string;

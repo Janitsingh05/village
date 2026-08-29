@@ -63,7 +63,10 @@ service cloud.firestore {
           && request.resource.data.resolutionPhotoUrl == null
           // Inline thumbnail only; the full image is its own document.
           && (request.resource.data.photoUrl == null
-              || request.resource.data.photoUrl.size() < 60000);
+              || request.resource.data.photoUrl.size() < 60000)
+          && request.resource.data.photoCount is int
+          && request.resource.data.photoCount >= 0
+          && request.resource.data.photoCount <= 3;
 
         // Only the village's admins move a complaint along, and they may never
         // rewrite what the citizen reported.
@@ -86,9 +89,11 @@ service cloud.firestore {
         // keeps a write from failing against Firestore's 1 MiB document limit.
         match /media/{kind} {
           allow read: if true;
+          // photo-0 .. photo-2 come from the citizen filing the complaint;
+          // 'proof' is the admin's evidence and only they may write it.
           allow create: if request.resource.data.data is string
             && request.resource.data.data.size() < 900000
-            && (kind == 'photo' || isVillageAdmin(villageId));
+            && (kind.matches('photo-[0-2]') || isVillageAdmin(villageId));
           allow update, delete: if isVillageAdmin(villageId);
         }
       }

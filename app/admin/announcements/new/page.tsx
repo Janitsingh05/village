@@ -121,7 +121,7 @@ export default function NewAnnouncementPage() {
 
         <div>
           <p className="label">{t('announce.photoOptional')}</p>
-          <PhotoUpload onChange={setPhoto} />
+          <PhotoUpload onChange={(files) => setPhoto(files[0] ?? null)} />
         </div>
 
         {error && (

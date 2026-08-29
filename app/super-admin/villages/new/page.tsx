@@ -12,6 +12,7 @@ export default function NewVillagePage() {
   const { t } = useI18n();
 
   const [name, setName] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [state, setState] = useState('');
   const [district, setDistrict] = useState('');
   const [address, setAddress] = useState('');
@@ -35,7 +36,7 @@ export default function NewVillagePage() {
     setBusy(true);
     setError(null);
     try {
-      await createVillage({ name, state, district, address, adminName, adminPhone });
+      await createVillage({ name, nameEn, state, district, address, adminName, adminPhone });
       router.push('/super-admin/villages');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('announce.failed'));
@@ -65,6 +66,19 @@ export default function NewVillagePage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('super.fieldNamePlaceholder')}
+            className="field"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="nameEn">
+            {t('super.fieldNameEn')}
+          </label>
+          <input
+            id="nameEn"
+            value={nameEn}
+            onChange={(e) => setNameEn(e.target.value)}
+            placeholder={t('super.fieldNameEnPlaceholder')}
             className="field"
           />
         </div>

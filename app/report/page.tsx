@@ -7,7 +7,7 @@ import CategoryPicker from '@/components/CategoryPicker';
 import PhotoUpload from '@/components/PhotoUpload';
 import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
-import { wardOptions } from '@/lib/config';
+import { MAX_PHOTOS, wardOptions } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { rememberMe } from '@/lib/me';
 import { complaintHref } from '@/lib/route-id';
@@ -21,7 +21,7 @@ export default function ReportPage() {
 
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [description, setDescription] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [locMode, setLocMode] = useState<'gps' | 'ward'>('gps');
   const [ward, setWard] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -71,7 +71,7 @@ export default function ReportPage() {
       const id = await createComplaint({
         category,
         description,
-        photoFile: photo,
+        photoFiles: photos,
         ward: ward || (coords ? 'GPS' : ''),
         lat: coords?.lat,
         lng: coords?.lng,
@@ -124,7 +124,7 @@ export default function ReportPage() {
 
           <section>
             <p className="label">{t('report.step3New')}</p>
-            <PhotoUpload onChange={setPhoto} />
+            <PhotoUpload max={MAX_PHOTOS} onChange={setPhotos} />
           </section>
 
           <section>
@@ -174,25 +174,38 @@ export default function ReportPage() {
 
           <section className="space-y-3">
             <p className="label">{t('report.step5')}</p>
-            <input
-              aria-label={t('report.namePlaceholder')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('report.namePlaceholder')}
-              className="field"
-            />
-            <input
-              aria-label={t('report.phoneLabel')}
-              id="phone"
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              placeholder={t('report.phonePlaceholder')}
-              className="field"
-            />
-            <p className="text-xs text-slate-500">{t('report.phoneNote')}</p>
+
+            {/* Both fields carry their own visible label: the section holds a
+                name and a phone number, so one heading cannot describe both. */}
+            <div>
+              <label className="label" htmlFor="reporter-name">
+                {t('report.nameLabel')}
+              </label>
+              <input
+                id="reporter-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('report.namePlaceholder')}
+                className="field"
+              />
+            </div>
+
+            <div>
+              <label className="label" htmlFor="phone">
+                {t('report.phoneLabel')}
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder={t('report.phonePlaceholder')}
+                className="field"
+              />
+              <p className="mt-1.5 text-xs text-slate-500">{t('report.phoneNote')}</p>
+            </div>
           </section>
 
           {error && (

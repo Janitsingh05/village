@@ -7,7 +7,7 @@ import BottomNav from '@/components/BottomNav';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatusBadge, { STATUS_DOT } from '@/components/StatusBadge';
 import Icon from '@/components/Icon';
-import { getComplaint, getFullPhoto, submitFeedback } from '@/lib/complaints';
+import { getComplaint, getComplaintPhotos, getFullPhoto, submitFeedback } from '@/lib/complaints';
 import { categoryOf, STATUS_TIMELINE, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { complaintShareUrl, useRouteId } from '@/lib/route-id';
@@ -23,7 +23,7 @@ export default function ComplaintDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   // The complaint carries only a thumbnail so the feed stays light; the full
   // image is a separate document, fetched once this page is actually open.
-  const [fullPhoto, setFullPhoto] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [fullProof, setFullProof] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -49,9 +49,9 @@ export default function ComplaintDetailPage() {
   useEffect(() => {
     if (!id || !complaint) return;
     let alive = true;
-    if (complaint.photoUrl) {
-      getFullPhoto(id, 'photo')
-        .then((d) => alive && setFullPhoto(d))
+    if (complaint.photoCount > 0) {
+      getComplaintPhotos(id, complaint.photoCount)
+        .then((list) => alive && setPhotos(list))
         .catch(() => {
           /* the thumbnail stays on screen */
         });
@@ -164,12 +164,28 @@ export default function ComplaintDetailPage() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           {complaint.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fullPhoto || complaint.photoUrl}
-              alt={catName}
-              className="h-48 w-full rounded-2xl bg-slate-200 object-cover"
-            />
+            // One photo fills the slot; several become a swipeable strip, so a
+            // villager can show the problem from more than one angle.
+            <div
+              className={
+                photos.length > 1
+                  ? 'flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl'
+                  : ''
+              }
+            >
+              {(photos.length ? photos : [complaint.photoUrl]).map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={catName + ' ' + (i + 1)}
+                  className={
+                    'h-48 rounded-2xl bg-slate-200 object-cover ' +
+                    (photos.length > 1 ? 'w-4/5 shrink-0 snap-center' : 'w-full')
+                  }
+                />
+              ))}
+            </div>
           ) : (
             <div className="grid h-48 w-full place-items-center rounded-2xl bg-white shadow-card">
               <CategoryIcon id={cat.id} size="lg" />

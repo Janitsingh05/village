@@ -7,62 +7,84 @@ import { useI18n } from '@/lib/i18n';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
+interface Picked {
+  file: File;
+  thumb: string;
+  note: string;
+}
+
 /**
- * One dashed drop-box. The input deliberately omits `capture`, so Android and
- * iOS both offer "take a photo" *and* "choose from gallery" in one sheet —
- * which is exactly what the label promises.
+ * Photo picker for one or several images.
  *
- * Compression runs the moment a photo is picked, so the wait happens while the
- * rest of the form is being filled rather than on submit.
+ * The input deliberately omits `capture`, so Android and iOS both offer "take a
+ * photo" *and* "choose from gallery" in one sheet — which is what the label
+ * promises. Compression runs the moment a photo is picked, so the wait happens
+ * while the rest of the form is filled rather than on submit, and an unusable
+ * image is rejected before the complaint is written.
  */
 export default function PhotoUpload({
+  max = 1,
   titleKey = 'report.photoBoxTitle',
   subKey = 'report.photoBoxSub',
   onChange,
 }: {
+  max?: number;
   titleKey?: string;
   subKey?: string;
-  onChange: (file: File | null) => void;
+  onChange: (files: File[]) => void;
 }) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Picked[]>([]);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
+  function publish(next: Picked[]) {
+    setPicked(next);
+    onChange(next.map((p) => p.file));
+  }
+
+  async function handleFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
     setError(null);
-
-    if (file.size > MAX_BYTES) {
-      setError(t('report.photoLimit'));
-      return;
-    }
-
     setBusy(true);
+
+    const room = max - picked.length;
+    const incoming = Array.from(fileList).slice(0, Math.max(room, 0));
+    const accepted: Picked[] = [];
+
     try {
-      // Compress here so the wait happens while the rest of the form is being
-      // filled, and so an unusable image is rejected before submit.
-      const prepared = await preparePhoto(file);
-      setPreview(prepared.thumb);
-      setNote(readableSize(prepared.originalBytes) + ' → ' + readableSize(prepared.fullBytes));
-      onChange(file);
-    } catch (err) {
-      const code = err instanceof Error ? err.message : '';
-      setError(code === 'PHOTO_TOO_LARGE' ? t('report.photoTooLarge') : t('report.photoFailed'));
-      onChange(null);
+      for (const file of incoming) {
+        if (file.size > MAX_BYTES) {
+          setError(t('report.photoLimit'));
+          continue;
+        }
+        try {
+          const prepared = await preparePhoto(file);
+          accepted.push({
+            file,
+            thumb: prepared.thumb,
+            note: readableSize(prepared.originalBytes) + ' → ' + readableSize(prepared.fullBytes),
+          });
+        } catch (err) {
+          const code = err instanceof Error ? err.message : '';
+          setError(code === 'PHOTO_TOO_LARGE' ? t('report.photoTooLarge') : t('report.photoFailed'));
+        }
+      }
+      if (accepted.length) publish([...picked, ...accepted]);
     } finally {
       setBusy(false);
+      // Let the same file be chosen again after a removal.
+      if (inputRef.current) inputRef.current.value = '';
     }
   }
 
-  function clear() {
-    setPreview(null);
-    setNote(null);
-    onChange(null);
-    if (inputRef.current) inputRef.current.value = '';
+  function removeAt(index: number) {
+    publish(picked.filter((_, i) => i !== index));
+    setError(null);
   }
+
+  const room = max - picked.length;
 
   return (
     <div>
@@ -70,26 +92,38 @@ export default function PhotoUpload({
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple={max > 1}
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => handleFiles(e.target.files)}
       />
 
-      {preview ? (
-        <div className="overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt={t('photo.selectedAlt')} className="max-h-64 w-full object-cover" />
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="text-xs text-slate-500">{note}</span>
-            <button
-              type="button"
-              onClick={clear}
-              className="rounded-lg px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-            >
-              {t('photo.remove')}
-            </button>
-          </div>
-        </div>
-      ) : (
+      {picked.length > 0 && (
+        <ul className={'mb-3 grid gap-2 ' + (max > 1 ? 'grid-cols-3' : 'grid-cols-1')}>
+          {picked.map((p, i) => (
+            <li key={i} className="relative overflow-hidden rounded-2xl border-2 border-slate-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.thumb}
+                alt={t('photo.selectedAlt')}
+                className={'w-full object-cover ' + (max > 1 ? 'h-24' : 'max-h-64')}
+              />
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                aria-label={t('photo.remove')}
+                className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-slate-900/70 text-white"
+              >
+                <Icon name="plus" className="h-4 w-4 rotate-45" strokeWidth={2.6} />
+              </button>
+              {max === 1 && (
+                <p className="px-3 py-2 text-xs text-slate-500">{p.note}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {room > 0 && (
         <button
           type="button"
           disabled={busy}
@@ -106,7 +140,9 @@ export default function PhotoUpload({
         </button>
       )}
 
-      <p className="mt-2 text-center text-[11px] text-slate-400">{t('report.photoLimit')}</p>
+      <p className="mt-2 text-center text-[11px] text-slate-400">
+        {max > 1 ? t('report.photoLimitMulti', { n: max, used: picked.length }) : t('report.photoLimit')}
+      </p>
       {error && <p className="mt-1 text-center text-xs font-medium text-red-600">{error}</p>}
     </div>
   );

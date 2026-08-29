@@ -54,7 +54,15 @@ export function VillageProvider({ children }: { children: React.ReactNode }) {
     () => ({
       id,
       village,
-      name: (lang) => village?.name || (lang === 'en' ? VILLAGE.nameEn : VILLAGE.nameHi),
+      name: (lang) => {
+        // A record has one primary name plus an optional English one. Falling
+        // straight through to `name` here is what left the header in Hindi
+        // after switching to English.
+        if (village) {
+          return lang === 'en' ? village.nameEn || VILLAGE.nameEn || village.name : village.name;
+        }
+        return lang === 'en' ? VILLAGE.nameEn : VILLAGE.nameHi;
+      },
       district: (lang) => {
         if (village) return [village.district, village.state].filter(Boolean).join(', ');
         return (lang === 'en' ? VILLAGE.districtEn : VILLAGE.districtHi) || VILLAGE.districtHi;

@@ -194,11 +194,7 @@ export default function AdminComplaintPage() {
 
         <div className="mt-4">
           <p className="label">{t('admin.proofHeading')}</p>
-          <PhotoUpload
-            onChange={setProof}
-            titleKey="photo.proofHint"
-            subKey="report.photoBoxSub"
-          />
+          <PhotoUpload onChange={(files) => setProof(files[0] ?? null)} />
         </div>
 
         {error && (

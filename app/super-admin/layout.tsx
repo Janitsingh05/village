@@ -8,12 +8,13 @@ import Logo from '@/components/Logo';
 import { signOut, watchSession, type AdminSession } from '@/lib/auth';
 import { isSuperAdmin } from '@/lib/roles';
 import { useI18n } from '@/lib/i18n';
+import { samePath } from '@/lib/route-match';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  const isLogin = pathname === '/super-admin/login';
+  const isLogin = samePath(pathname, '/super-admin/login');
 
   const [allowed, setAllowed] = useState<boolean | undefined>(undefined);
 

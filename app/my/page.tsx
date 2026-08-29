@@ -32,7 +32,7 @@ export default function MyComplaintsPage() {
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-24">
-      <AppHeader title={t('mine.title')} />
+      <AppHeader back="/" title={t('mine.title')} />
 
       <main className="mx-auto max-w-2xl px-4">
         <p className="mb-4 text-sm text-slate-500">{t('mine.subtitle')}</p>

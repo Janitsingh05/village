@@ -74,7 +74,7 @@
     "gpsLocating": "📍 Finding your location…",
     "gpsDone": "✅ GPS location added",
     "gpsDenied": "⚠️ GPS unavailable — pick a ward instead",
-    "step5": "5. Your name",
+    "step5": "5. Your details",
     "namePlaceholder": "Name",
     "phoneLabel": "Mobile number",
     "phonePlaceholder": "10-digit number",
@@ -100,7 +100,9 @@
     "submitNew": "Submit complaint",
     "footerNote": "Your details are kept safe and used for official purposes only.",
     "photoTooLarge": "That photo is too large — please pick another.",
-    "photoFailed": "Could not attach the photo, please try again."
+    "photoFailed": "Could not attach the photo, please try again.",
+    "nameLabel": "Your name (optional)",
+    "photoLimitMulti": "{used}/{n} photos · max 5MB each"
   },
   "photo": {
     "camera": "Camera",
@@ -282,7 +284,9 @@
     "submit": "Add village / society",
     "created": "Village added",
     "empty": "No villages onboarded yet.",
-    "complaintsCount": "{n} complaints"
+    "complaintsCount": "{n} complaints",
+    "fieldNameEn": "Name in English (optional)",
+    "fieldNameEnPlaceholder": "Rampura Gram Panchayat"
   },
   "setup": {
     "title": "Setup check",

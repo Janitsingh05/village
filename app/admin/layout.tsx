@@ -11,6 +11,7 @@ import { claimVillageForAdmin } from '@/lib/villages';
 import { setActiveVillage } from '@/lib/tenant';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
+import { isOneOf } from '@/lib/route-match';
 
 /** Routes inside /admin that must stay reachable while signed out. */
 const PUBLIC_ROUTES = ['/admin/login', '/admin/verify'];
@@ -25,7 +26,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { lang, t } = useI18n();
   const village = useVillage();
   const reloadVillage = village.reload;
-  const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const isPublic = isOneOf(pathname, PUBLIC_ROUTES);
 
   const [session, setSession] = useState<AdminSession | null | undefined>(undefined);
   const [unclaimed, setUnclaimed] = useState(false);
