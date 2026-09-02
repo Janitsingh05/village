@@ -75,7 +75,7 @@ export default function AdminDrawer({
             </p>
             <p className="truncate text-xs text-slate-500">{village.district(lang)}</p>
             {email && (
-              <p className="mt-1 truncate font-mono text-[11px] text-slate-400">
+              <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
                 {t('admin.signedInAs', { account: email })}
               </p>
             )}

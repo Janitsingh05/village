@@ -56,7 +56,7 @@
     "viewAll": "View all",
     "statTotalSub": "so far",
     "statResolvedLabel": "Resolved",
-    "statResolvedSub": "this month",
+    "statResolvedSub": "so far",
     "statAvgLabel": "Avg resolution time",
     "statAvgSub": "overall",
     "statPeopleLabel": "Residents reporting",
@@ -102,7 +102,10 @@
     "nameLabel": "Your name (optional)",
     "photoLimitMulti": "{used}/{n} photos · max 5MB each",
     "gpsResolving": "Identifying the place…",
-    "gpsNoPlace": "Location captured, but the place name could not be identified"
+    "gpsNoPlace": "Location captured, but the place name could not be identified",
+    "photoFormat": "This photo would not open on this phone (it may be an iPhone HEIC) — pick another from the gallery.",
+    "needsNetworkOnce": "Filing your first complaint needs internet once. After that it works offline too.",
+    "draftRestored": "What you typed last time is back. You will need to add the photo again."
   },
   "photo": {
     "camera": "Camera",
@@ -251,7 +254,11 @@
     "title": "My complaints",
     "subtitle": "Complaints filed from this phone",
     "empty": "You haven't filed any complaints yet.",
-    "emptyCta": "File your first complaint"
+    "emptyCta": "File your first complaint",
+    "trackLabel": "Find by complaint number",
+    "trackHelp": "Enter the number on your receipt — it works even on a new phone.",
+    "trackCta": "Find",
+    "trackMissing": "No complaint found with that number. Please check it again."
   },
   "more": {
     "title": "More",

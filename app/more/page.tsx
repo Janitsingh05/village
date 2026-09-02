@@ -134,7 +134,7 @@ export default function MorePage() {
           <Logo variant="full" className="mx-auto h-20 w-20" />
           <p className="mt-2 font-bold text-slate-900">{t('more.about')}</p>
           <p className="mt-0.5 text-sm text-slate-500">{t('more.aboutSub')}</p>
-          <p className="mt-2 text-xs text-slate-400">{t('more.version', { v: APP_VERSION })}</p>
+          <p className="mt-2 text-xs text-slate-500">{t('more.version', { v: APP_VERSION })}</p>
         </footer>
       </main>
 
@@ -146,7 +146,7 @@ export default function MorePage() {
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
         {title}
       </h2>
       <div className="divide-y divide-slate-100 overflow-hidden rounded-3xl bg-white shadow-card">

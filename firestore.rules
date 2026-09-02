@@ -69,16 +69,27 @@ service cloud.firestore {
       match /complaints/{complaintId} {
         allow read: if true;
 
-        // Anyone (including anonymous citizens) may file, but only with a
-        // well-formed doc that starts at "pending" and is scoped to this village.
-        allow create: if request.resource.data.villageId == villageId
+        // Filing requires an account, and the only account a citizen ever has is
+        // the anonymous one the app creates for them without asking. They still
+        // never see a login screen — but "nobody signs in" and "anybody may
+        // write" are different things, and only the second was ever enforceable.
+        //
+        // What the UID buys: a complaint can only be edited by the device that
+        // filed it, and a flood can be attributed to an account and cut off.
+        // It is not a rate limit — rules cannot count over time without a
+        // server — so App Check is still the thing to turn on next.
+        allow create: if isSignedIn()
+          && request.resource.data.reporterUid == request.auth.uid
+          && request.resource.data.villageId == villageId
           && request.resource.data.status == 'pending'
           && request.resource.data.category is string
           && request.resource.data.description is string
           && request.resource.data.description.size() > 0
-          && request.resource.data.description.size() <= 1000
-          && request.resource.data.reportedBy.phone is string
-          && request.resource.data.reportedBy.phone.size() <= 15
+          // Matches the form's own cap. They disagreed before, so an API write
+          // could store a 1000-character description into a card built for 200.
+          && request.resource.data.description.size() <= 300
+          && request.resource.data.reportedBy.phoneMasked is string
+          && request.resource.data.reportedBy.phoneMasked.size() <= 14
           && request.resource.data.resolutionPhotoUrl == null
           // Inline thumbnail only; the full image is its own document.
           && (request.resource.data.photoUrl == null
@@ -107,9 +118,15 @@ service cloud.firestore {
           && request.resource.data.reportedBy == resource.data.reportedBy
           && request.resource.data.status in ['pending', 'in_progress', 'resolved', 'closed'];
 
-        // Citizens confirm the fix (or say it is still broken). This is the one
-        // update an anonymous caller may make, and it may touch nothing else.
-        allow update: if onlyChanged(['feedback', 'updatedAt'])
+        // The reporter confirms the fix, or says it is still broken.
+        //
+        // Restricted to the device that filed it. This used to accept any
+        // anonymous caller on any complaint, which meant the single signal a
+        // villager has that a repair really happened could be flipped from a
+        // browser console — by the office being complained about, among others.
+        allow update: if isSignedIn()
+          && resource.data.reporterUid == request.auth.uid
+          && onlyChanged(['feedback', 'updatedAt'])
           && request.resource.data.feedback.verdict in ['still_open', 'confirmed'];
 
         // Deleting is the super admin's, not the Sarpanch's.
@@ -121,6 +138,22 @@ service cloud.firestore {
         // done by whoever runs the platform.
         allow delete: if isSuperAdmin();
 
+        // The reporter's real phone number.
+        //
+        // The complaint above is world-readable and has to stay that way — a
+        // public feed the village can inspect is the whole point. But a name, a
+        // phone number and a house location published together is a safety
+        // problem, so the number lives here instead, where exactly the people
+        // who need to ring back can read it and nobody else can.
+        match /private/contact {
+          allow read: if isVillageAdmin(villageId) || isSuperAdmin();
+          allow create: if isSignedIn()
+            && request.resource.data.phone is string
+            && request.resource.data.phone.matches('[6-9][0-9]{9}');
+          allow update: if false;
+          allow delete: if isSuperAdmin();
+        }
+
         // Full-size images live here, one document each, because Cloud Storage
         // needs a billing account and a village pilot should not. The size cap
         // keeps a write from failing against Firestore's 1 MiB document limit.
@@ -130,7 +163,8 @@ service cloud.firestore {
           // complaint; 'proof' is the admin's evidence and only they may write
           // it. A spoken complaint is public exactly like a written one — the
           // whole point is that the village can see what was reported.
-          allow create: if request.resource.data.data is string
+          allow create: if isSignedIn()
+            && request.resource.data.data is string
             && request.resource.data.data.size() < 900000
             && (kind.matches('photo-[0-2]') || kind == 'voice' || isVillageAdmin(villageId));
           allow update: if isVillageAdmin(villageId);
@@ -219,7 +253,11 @@ service cloud.firestore {
     match /adminReports/{reportId} {
       allow read, update, delete: if isSuperAdmin();
 
-      allow create: if request.resource.data.status == 'open'
+      // Still anonymous in the sense that matters — no name, no number is stored
+      // and the super admin cannot tell who wrote it. The account is only there
+      // so an abusive flood can be cut off.
+      allow create: if isSignedIn()
+        && request.resource.data.status == 'open'
         && exists(/databases/$(database)/documents/villages/$(request.resource.data.villageId))
         && request.resource.data.reason is string
         && request.resource.data.reason.size() > 0

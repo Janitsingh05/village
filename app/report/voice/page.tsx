@@ -8,7 +8,7 @@ import CategoryIcon from '@/components/CategoryIcon';
 import CameraCapture from '@/components/CameraCapture';
 import VoiceRecorder, { type VoiceResult } from '@/components/VoiceRecorder';
 import { createComplaint } from '@/lib/complaints';
-import { CATEGORIES } from '@/lib/config';
+import { CATEGORIES, isValidPhone } from '@/lib/config';
 import { guessCategory } from '@/lib/category-guess';
 import { canSpeak, speak, stopSpeaking, warmVoices } from '@/lib/speech';
 import { reverseGeocode, type Place } from '@/lib/geocode';
@@ -140,7 +140,7 @@ export default function VoiceReportPage() {
         <Link
           href="/report"
           aria-label={t('common.back')}
-          className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700"
+          className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-700"
         >
           <Icon name="back" className="h-6 w-6" />
         </Link>
@@ -159,7 +159,7 @@ export default function VoiceReportPage() {
             type="button"
             onClick={() => speak(prompt, lang)}
             aria-label={t('voice.readAloud')}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-brand-700 shadow-card"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-brand-700 shadow-card"
           >
             <Icon name="speaker" className="h-5 w-5" />
           </button>
@@ -190,7 +190,7 @@ export default function VoiceReportPage() {
                 Panchayat actually receives. */}
             {transcript && (
               <p className="mb-5 rounded-2xl bg-white px-4 py-3 text-center text-[15px] leading-snug text-slate-700 shadow-card">
-                <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   {t('voice.heard')}
                 </span>
                 {transcript}
@@ -293,7 +293,9 @@ export default function VoiceReportPage() {
           <div className="mt-6">
             <p
               className="mt-2 text-center font-mono text-3xl font-bold tracking-[0.2em] text-slate-900"
+              role="status"
               aria-live="polite"
+              aria-label={t('register.phone') + ': ' + (phone.split('').join(' ') || '—')}
             >
               {phone.padEnd(10, '·')}
             </p>
@@ -306,7 +308,7 @@ export default function VoiceReportPage() {
             )}
 
             <NextButton
-              disabled={phone.length !== 10}
+              disabled={!isValidPhone(phone)}
               label={t('voice.send')}
               onClick={submit}
             />

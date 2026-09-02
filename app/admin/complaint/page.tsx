@@ -7,7 +7,7 @@ import CategoryIcon from '@/components/CategoryIcon';
 import VoicePlayer from '@/components/VoicePlayer';
 import PhotoUpload from '@/components/PhotoUpload';
 import Icon from '@/components/Icon';
-import { getComplaint, getFullPhoto, updateComplaintStatus } from '@/lib/complaints';
+import { getReporterPhone, getComplaint, getFullPhoto, updateComplaintStatus } from '@/lib/complaints';
 import { categoryOf, STATUS_ORDER, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { useRouteId } from '@/lib/route-id';
@@ -26,6 +26,9 @@ export default function AdminComplaintPage() {
   const [note, setNote] = useState('');
   const [proof, setProof] = useState<File | null>(null);
   const [fullPhoto, setFullPhoto] = useState<string | null>(null);
+  // The real number, from the admin-only sibling document. The complaint itself
+  // carries only the masked form now, so this is fetched rather than read off it.
+  const [reporterPhone, setReporterPhone] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,7 @@ export default function AdminComplaintPage() {
       return;
     }
     let alive = true;
+    void getReporterPhone(id).then((p) => alive && setReporterPhone(p));
     getComplaint(id)
       .then((c) => {
         if (!alive) return;
@@ -137,7 +141,7 @@ export default function AdminComplaintPage() {
               />
             </div>
           )}
-          <p className="mt-1 font-mono text-xs text-slate-400">{complaint.ref}</p>
+          <p className="mt-1 font-mono text-xs text-slate-500">{complaint.ref}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <Icon name="pin" className="h-3.5 w-3.5" />
@@ -156,13 +160,24 @@ export default function AdminComplaintPage() {
               <span className="min-w-0 truncate">{complaint.location.address}</span>
             </p>
           )}
-          <a
-            href={'tel:' + complaint.reportedBy.phone}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700"
-          >
-            <Icon name="user" className="h-3.5 w-3.5" />
-            {complaint.reportedBy.name || t('common.anon')} · {complaint.reportedBy.phone}
-          </a>
+          {reporterPhone ? (
+            <a
+              href={'tel:' + reporterPhone}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700"
+            >
+              <Icon name="user" className="h-3.5 w-3.5" />
+              {complaint.reportedBy.name || t('common.anon')} · {reporterPhone}
+            </a>
+          ) : (
+            // Either this complaint predates the private document, or the write
+            // that should have created it failed. The masked number at least
+            // confirms which complaint is which.
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+              <Icon name="user" className="h-3.5 w-3.5" />
+              {complaint.reportedBy.name || t('common.anon')} ·{' '}
+              {complaint.reportedBy.phoneMasked || t('common.none')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -208,7 +223,7 @@ export default function AdminComplaintPage() {
             placeholder={t('admin.notePlaceholder')}
             className="field resize-none"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">
+          <p className="mt-1 text-right text-xs text-slate-500">
             {note.length}/{NOTE_MAX}
           </p>
         </div>

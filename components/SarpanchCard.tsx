@@ -97,7 +97,7 @@ export default function SarpanchCard() {
         <button
           type="button"
           onClick={() => setReporting(true)}
-          className="text-[11px] font-semibold text-slate-400 underline underline-offset-2"
+          className="text-[11px] font-semibold text-slate-500 underline underline-offset-2"
         >
           {t('village.reportWrong')}
         </button>

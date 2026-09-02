@@ -120,7 +120,7 @@ export default function CameraCapture({
             onClose();
           }}
           aria-label={t('nav.close')}
-          className="grid h-10 w-10 place-items-center rounded-full bg-white/10"
+          className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
         >
           <Icon name="plus" className="h-5 w-5 rotate-45" strokeWidth={2.4} />
         </button>
@@ -130,7 +130,7 @@ export default function CameraCapture({
             type="button"
             onClick={() => setFacing((f) => (f === 'environment' ? 'user' : 'environment'))}
             aria-label={t('camera.switch')}
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/10"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
           >
             <Icon name="camera" className="h-5 w-5" />
           </button>

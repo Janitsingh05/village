@@ -29,7 +29,7 @@
   }
 
   .field {
-    @apply w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5 text-base outline-none transition placeholder:text-slate-400 focus:border-brand-500;
+    @apply w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5 text-base outline-none transition placeholder:text-slate-500 focus:border-brand-500;
   }
 
   .label {

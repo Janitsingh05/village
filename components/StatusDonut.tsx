@@ -77,7 +77,7 @@ export default function StatusDonut({
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="text-center">
             <p className="text-2xl font-extrabold leading-none text-slate-900">{total}</p>
-            <p className="mt-1 text-[10px] font-medium text-slate-400">{t('admin.statTotal')}</p>
+            <p className="mt-1 text-[10px] font-medium text-slate-500">{t('admin.statTotal')}</p>
           </div>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function StatusDonut({
               />
               <span className="min-w-0 flex-1 truncate text-slate-600">{t('status.' + status)}</span>
               <span className="shrink-0 font-semibold text-slate-900">{value}</span>
-              <span className="w-10 shrink-0 text-right text-xs text-slate-400">({pct}%)</span>
+              <span className="w-10 shrink-0 text-right text-xs text-slate-500">({pct}%)</span>
             </li>
           );
         })}

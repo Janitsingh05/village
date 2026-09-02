@@ -2,6 +2,7 @@
 
 import {
   createUserWithEmailAndPassword,
+  signInAnonymously,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
@@ -96,6 +97,40 @@ export function authErrorKind(
   }
   if (code === 'auth/network-request-failed') return 'offline';
   return 'failed';
+}
+
+/**
+ * Gives the browser an identity before it writes anything.
+ *
+ * Citizens never sign in, and that has to stay true — asking a villager to make
+ * an account before reporting a broken handpump loses most of them. But
+ * "nobody signs in" and "anybody may write" are different things, and the rules
+ * could only ever enforce the second. An anonymous account is invisible: no
+ * screen, no password, nothing to remember. What it buys is a stable UID, and
+ * with it two rules worth having — a complaint can only be edited by the device
+ * that filed it, and abuse can be attributed and capped.
+ *
+ * Never displaces a real session. An admin browsing the public feed keeps their
+ * own account; only a browser with no user at all gets one of these.
+ *
+ * Returns null when anonymous sign-in is disabled in the Firebase project, so
+ * callers can say something honest rather than throwing a Firebase code at a
+ * villager.
+ */
+export async function ensureAnonymous(): Promise<string | null> {
+  const existing = auth().currentUser;
+  if (existing) return existing.uid;
+
+  try {
+    const cred = await signInAnonymously(auth());
+    return cred.user.uid;
+  } catch {
+    return null;
+  }
+}
+
+export function currentUid(): string | null {
+  return auth().currentUser?.uid ?? null;
 }
 
 export async function signOut(): Promise<void> {

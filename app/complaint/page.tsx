@@ -144,7 +144,7 @@ export default function ComplaintDetailPage() {
             type="button"
             onClick={share}
             aria-label={t('common.share')}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
           >
             <Icon name="share" className="h-5 w-5" />
           </button>
@@ -152,7 +152,7 @@ export default function ComplaintDetailPage() {
       />
 
       <main className="mx-auto max-w-2xl space-y-4 px-4">
-        <p className="text-xs font-medium text-slate-400">
+        <p className="text-xs font-medium text-slate-500">
           {t('detail.refLabel')}: <span className="font-mono">{complaint.ref}</span>
         </p>
 
@@ -251,12 +251,12 @@ export default function ComplaintDetailPage() {
             <Icon name="user" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-400">{t('detail.reporterCard')}</p>
+            <p className="text-xs text-slate-500">{t('detail.reporterCard')}</p>
             <p className="truncate font-semibold text-slate-900">
               {complaint.reportedBy.name || t('common.anon')}
             </p>
             <p className="font-mono text-xs text-slate-500">
-              {maskPhone(complaint.reportedBy.phone)}
+              {complaint.reportedBy.phoneMasked}
             </p>
           </div>
         </div>
@@ -283,7 +283,7 @@ export default function ComplaintDetailPage() {
               )}
             </div>
           ) : (
-            <p className="rounded-2xl bg-white p-4 text-sm text-slate-400 shadow-card">
+            <p className="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-card">
               {t('common.notAvailable')}
             </p>
           )}
@@ -337,9 +337,9 @@ function Meta({
 }) {
   return (
     <div className="mt-2 flex items-start gap-2 text-sm">
-      <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+      <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
       <span className="min-w-0">
-        <span className="block text-[11px] leading-none text-slate-400">{label}</span>
+        <span className="block text-[11px] leading-none text-slate-500">{label}</span>
         <span className="block font-medium text-slate-800">{value}</span>
       </span>
     </div>
@@ -362,23 +362,39 @@ function Timeline({ complaint }: { complaint: Complaint }) {
         return (
           <li key={status} className="flex gap-3">
             <div className="flex flex-col items-center">
+              {/* A tick, not just a colour: reached and unreached steps have to
+                  differ by shape as well, or the timeline says nothing to
+                  someone who cannot separate green from grey. */}
               <span
                 className={
-                  'mt-1 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ' +
-                  (done ? STATUS_DOT[status] + ' ring-white' : 'bg-slate-200 ring-white')
+                  'mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full ring-4 ring-white ' +
+                  (done ? STATUS_DOT[status] : 'bg-slate-200')
                 }
-              />
+              >
+                {done && (
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true">
+                    <path
+                      d="M5 12.5l4.5 4.5L19 7.5"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </span>
               {!isLast && (
                 <span className={'w-0.5 flex-1 ' + (done ? 'bg-brand-200' : 'bg-slate-100')} />
               )}
             </div>
             <div className={isLast ? 'pb-0' : 'pb-5'}>
-              <p className={'text-sm font-bold ' + (done ? 'text-slate-900' : 'text-slate-300')}>
+              <p className={'text-sm font-bold ' + (done ? 'text-slate-900' : 'text-slate-500')}>
                 {t('status.' + status)}
               </p>
               {event ? (
                 <>
-                  <p className="text-xs text-slate-400">{dateTime(event.at, lang)}</p>
+                  <p className="text-xs text-slate-500">{dateTime(event.at, lang)}</p>
                   {event.note && (
                     <p className="mt-1 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
                       {event.note}

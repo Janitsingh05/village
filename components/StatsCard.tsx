@@ -37,7 +37,7 @@ export default function StatsCard({
       </span>
       <p className="mt-2 text-lg font-bold leading-none text-slate-900">{value}</p>
       <p className="mt-1.5 text-[10px] font-semibold leading-tight text-slate-600">{label}</p>
-      {sub && <p className="text-[9px] leading-tight text-slate-400">{sub}</p>}
+      {sub && <p className="text-[9px] leading-tight text-slate-500">{sub}</p>}
     </>
   );
 

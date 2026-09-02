@@ -29,7 +29,7 @@ export default function BottomNav() {
               aria-current={active ? 'page' : undefined}
               className={
                 'flex min-w-0 flex-1 flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-semibold transition ' +
-                (active ? 'text-brand-600' : 'text-slate-400')
+                (active ? 'text-brand-600' : 'text-slate-500')
               }
             >
               <Icon

@@ -122,7 +122,7 @@ export default function AdminDashboardPage() {
       <section className="mt-4 rounded-3xl bg-white p-4 shadow-card">
         <h2 className="mb-3 text-base font-bold text-slate-900">{t('admin.topCategories')}</h2>
         {topCategories.length === 0 ? (
-          <p className="text-sm text-slate-400">{t('admin.emptyFilter')}</p>
+          <p className="text-sm text-slate-500">{t('admin.emptyFilter')}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {topCategories.map(([id, count]) => (

@@ -217,7 +217,7 @@ export default function VoiceRecorder({
       </p>
 
       {recording && (
-        <p className="mt-1 text-center text-xs text-slate-400">
+        <p className="mt-1 text-center text-xs text-slate-500">
           {t('voice.maxLength', { n: MAX_VOICE_SECONDS })}
         </p>
       )}
@@ -236,7 +236,7 @@ export default function VoiceRecorder({
           reporting a failure — but leaving it unexplained is what makes people
           think the button is broken. */}
       {recording && !transcript && dictationState !== 'idle' && (
-        <p className="mt-3 text-center text-xs leading-snug text-slate-400">
+        <p className="mt-3 text-center text-xs leading-snug text-slate-500">
           {t(dictationState === 'unsupported' ? 'voice.noTextHere' : 'voice.noTextNow')}
         </p>
       )}

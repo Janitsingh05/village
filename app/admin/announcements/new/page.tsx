@@ -96,7 +96,7 @@ export default function NewAnnouncementPage() {
             placeholder={t('announce.fieldTitlePlaceholder')}
             className="field"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">
+          <p className="mt-1 text-right text-xs text-slate-500">
             {title.length}/{TITLE_MAX}
           </p>
         </div>
@@ -114,7 +114,7 @@ export default function NewAnnouncementPage() {
             placeholder={t('announce.fieldBodyPlaceholder')}
             className="field resize-none"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">
+          <p className="mt-1 text-right text-xs text-slate-500">
             {body.length}/{BODY_MAX}
           </p>
         </div>

@@ -1,6 +1,9 @@
 import {
   collection,
   deleteDoc,
+  getCountFromServer,
+  limit as fsLimit,
+  where,
   doc,
   getDoc,
   getDocs,
@@ -17,6 +20,8 @@ import { db } from './firebase';
 import { MAX_PHOTOS, complaintRef } from './config';
 import { activeVillageId } from './tenant';
 import { preparePhoto } from './imageCompress';
+import { ensureAnonymous, currentUid } from './auth';
+import { maskPhone } from './format';
 import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
 
 // Every path here is scoped to villages/{villageId} so the data model is
@@ -48,7 +53,11 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
         : null,
     location: data.location ?? { ward: '' },
     status: (data.status as ComplaintStatus) ?? 'pending',
-    reportedBy: data.reportedBy ?? { name: '', phone: '' },
+    reporterUid: data.reporterUid ?? '',
+    reportedBy: {
+      name: data.reportedBy?.name ?? '',
+      phoneMasked: data.reportedBy?.phoneMasked ?? '',
+    },
     resolutionPhotoUrl: data.resolutionPhotoUrl ?? null,
     resolutionNote: data.resolutionNote ?? null,
     feedback: data.feedback ?? null,
@@ -66,6 +75,33 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
  * in its own doc that is only fetched when someone opens the complaint. See
  * lib/imageCompress.ts for why they are not in Cloud Storage.
  */
+/**
+ * Where the reporter's real phone number lives.
+ *
+ * A subcollection, because the complaint itself is world-readable and has to
+ * stay that way — the public feed is the point of the app. This document is
+ * readable only by the village's own admins, which is the exact set of people
+ * who need to ring the person back.
+ */
+function contactDoc(villageId: string, complaintId: string) {
+  return doc(complaintsCol(villageId), complaintId, 'private', 'contact');
+}
+
+/** The reporter's number, for an admin who needs to call them. Null otherwise. */
+export async function getReporterPhone(
+  complaintId: string,
+  villageId = activeVillageId()
+): Promise<string | null> {
+  try {
+    const snap = await getDoc(contactDoc(villageId, complaintId));
+    return snap.exists() ? (snap.data().phone as string) : null;
+  } catch {
+    // Not an admin of this village, or offline. Either way the masked number is
+    // already on screen; this only ever adds to it.
+    return null;
+  }
+}
+
 /** media keys: 'photo-0' … 'photo-2' and 'voice' from the citizen, 'proof' from the admin. */
 function mediaDoc(villageId: string, complaintId: string, kind: string) {
   return doc(complaintsCol(villageId), complaintId, 'media', kind);
@@ -122,16 +158,55 @@ export async function listComplaints(villageId = activeVillageId()): Promise<Com
 }
 
 /** Live list — used by the public feed and the admin dashboard. */
+/**
+ * How many complaints a feed loads at once.
+ *
+ * This query had no limit at all, which meant every screen opened a live
+ * listener over the entire collection — and every row carries a base64
+ * thumbnail. At 500 complaints that is around 18 MB down a 3G connection on
+ * each page load, billed as 500 document reads each time. It felt fine only
+ * because the pilot had a handful of rows; it would have broken on the day the
+ * app started working.
+ */
+export const FEED_PAGE = 40;
+
 export function subscribeToComplaints(
   onChange: (rows: Complaint[]) => void,
   onError: (e: Error) => void,
-  villageId = activeVillageId()
+  villageId = activeVillageId(),
+  max = FEED_PAGE
 ): () => void {
   return onSnapshot(
-    query(complaintsCol(villageId), orderBy('createdAt', 'desc')),
+    query(complaintsCol(villageId), orderBy('createdAt', 'desc'), fsLimit(max)),
     (snap) => onChange(snap.docs.map((d) => fromDoc(d.id, d.data()))),
     (e) => onError(e)
   );
+}
+
+/**
+ * The three headline numbers, counted on the server.
+ *
+ * An aggregation query costs one read and returns a number, instead of
+ * downloading every complaint to call `.length` on it. That is the only reason
+ * the home page can show a true total while the feed below it loads forty rows.
+ *
+ * The averages beside them still come from the loaded window — a mean needs the
+ * documents — so they describe recent complaints, and the labels say so.
+ */
+export async function countComplaints(
+  villageId = activeVillageId()
+): Promise<{ total: number; pending: number; resolved: number }> {
+  const col = complaintsCol(villageId);
+  const [total, pending, resolved] = await Promise.all([
+    getCountFromServer(col),
+    getCountFromServer(query(col, where('status', '==', 'pending'))),
+    getCountFromServer(query(col, where('status', '==', 'resolved'))),
+  ]);
+  return {
+    total: total.data().count,
+    pending: pending.data().count,
+    resolved: resolved.data().count,
+  };
 }
 
 export async function getComplaint(id: string, villageId = activeVillageId()): Promise<Complaint | null> {
@@ -154,6 +229,19 @@ export async function createComplaint(
 ): Promise<string> {
   const docRef = doc(complaintsCol(villageId));
   const now = Date.now();
+
+  // An identity before the write, not a login before the report. See
+  // ensureAnonymous — this is invisible to the villager.
+  // Null when anonymous sign-in is switched off in the Firebase project, or
+  // when this is a first-ever visit with no network. Filing goes ahead either
+  // way: refusing here would break every complaint in a project that has not
+  // enabled the provider yet, and the rules are the thing that decides whether
+  // an unattributed write is acceptable — not this function.
+  //
+  // The cost of a missing UID is narrow and recoverable: the complaint does not
+  // appear under "my complaints" on this device, and its owner cannot confirm
+  // the fix. The reference on the receipt still finds it.
+  const uid = (await ensureAnonymous()) ?? '';
 
   // Compress everything up front: an unusable photo is caught before the
   // complaint is written, and the thumbnail must be in the first write because
@@ -194,6 +282,10 @@ export async function createComplaint(
 
   await setDoc(docRef, {
     villageId,
+    // Stored, not only derived. The reference is the one thing a villager
+    // writes on paper or reads out over a phone, and until now nothing could
+    // look it up again — it was a one-way hash computed for display.
+    ref: complaintRef(docRef.id, now),
     category: input.category,
     description: input.description.trim(),
     // Only the first thumbnail rides on the complaint — the feed loads these,
@@ -211,7 +303,11 @@ export async function createComplaint(
       ...(input.address ? { address: input.address } : {}),
     },
     status: 'pending' as ComplaintStatus,
-    reportedBy: { name: input.reporterName.trim(), phone: input.reporterPhone.trim() },
+    reporterUid: uid,
+    reportedBy: {
+      name: input.reporterName.trim(),
+      phoneMasked: maskPhone(input.reporterPhone.trim()),
+    },
     resolutionPhotoUrl: null,
     resolutionNote: null,
     feedback: null,
@@ -219,6 +315,19 @@ export async function createComplaint(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // The number the Panchayat will actually ring, out of public reach. Written
+  // after the complaint so a failure here costs a callback, not the report.
+  const phone = input.reporterPhone.replace(/\D/g, '').slice(-10);
+  if (phone) {
+    await setDoc(contactDoc(villageId, docRef.id), {
+      phone,
+      createdAt: serverTimestamp(),
+    }).catch(() => {
+      // The masked number is on the complaint and the reporter can be reached
+      // through the app; losing this is a degraded complaint, not a lost one.
+    });
+  }
 
   await Promise.all(
     fulls.map((data, i) =>
@@ -277,6 +386,7 @@ export async function deleteComplaint(
   complaintId: string,
   villageId = activeVillageId()
 ): Promise<void> {
+  await deleteDoc(contactDoc(villageId, complaintId)).catch(() => undefined);
   await Promise.all(
     MEDIA_KINDS.map((kind) =>
       deleteDoc(mediaDoc(villageId, complaintId, kind)).catch(() => {
@@ -309,6 +419,27 @@ export async function deleteAllComplaints(
   }
 
   return done;
+}
+
+/**
+ * Finds a complaint from the reference printed on its receipt.
+ *
+ * The only recovery path a citizen has. "My complaints" is matched to this
+ * device, so a cleared browser or a new phone loses the list — and the person
+ * most likely to lose it is the one least able to file again from memory.
+ */
+export async function findComplaintByRef(
+  ref: string,
+  villageId = activeVillageId()
+): Promise<Complaint | null> {
+  const code = ref.trim().toUpperCase();
+  if (!code) return null;
+
+  const snap = await getDocs(
+    query(complaintsCol(villageId), where('ref', '==', code), fsLimit(1))
+  );
+  const hit = snap.docs[0];
+  return hit ? fromDoc(hit.id, hit.data()) : null;
 }
 
 /** Admin: move a complaint along the pipeline, optionally with proof. */
@@ -377,9 +508,10 @@ export function computeStats(rows: Complaint[]): ComplaintStats {
   rows.forEach((c) => counts.set(c.category, (counts.get(c.category) || 0) + 1));
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
 
-  const reporters = new Set(
-    rows.map((c) => (c.reportedBy.phone || '').trim()).filter(Boolean)
-  );
+  // Counted by device rather than by phone number, now that the number is not
+  // on the document. Slightly different meaning — one person on two phones
+  // counts twice — and no worse than the masked number would have been.
+  const reporters = new Set(rows.map((c) => c.reporterUid).filter(Boolean));
 
   return {
     total: rows.length,
@@ -401,13 +533,28 @@ export function computeStats(rows: Complaint[]): ComplaintStats {
 }
 
 /** Citizen confirms the fix, or says the problem is still there. */
+/**
+ * The citizen's verdict on whether the fix was real.
+ *
+ * Restricted to the device that filed the complaint. It used to be open to any
+ * anonymous caller on any complaint, which meant the one signal a villager has
+ * that a repair actually happened could be set from a browser console by the
+ * office being complained about.
+ */
 export async function submitFeedback(
   id: string,
   verdict: 'still_open' | 'confirmed',
   villageId = activeVillageId()
 ): Promise<void> {
+  await ensureAnonymous();
   await updateDoc(doc(complaintsCol(villageId), id), {
     feedback: { verdict, at: Date.now() },
     updatedAt: serverTimestamp(),
   });
+}
+
+/** Whether this device is the one that filed a complaint. */
+export function isOwnComplaint(complaint: Complaint): boolean {
+  const uid = currentUid();
+  return Boolean(uid && complaint.reporterUid === uid);
 }

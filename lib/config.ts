@@ -7,6 +7,29 @@ import type { Lang } from './i18n';
  */
 export const VILLAGE_ID = process.env.NEXT_PUBLIC_VILLAGE_ID || 'pilot-village';
 
+/**
+ * Where this deployment lives, for absolute URLs in share cards.
+ *
+ * Open Graph images have to be absolute — a relative path in a WhatsApp preview
+ * resolves against nothing and the card comes back blank.
+ */
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://village-psi-eight.vercel.app';
+
+/**
+ * An Indian mobile number: ten digits starting 6, 7, 8 or 9.
+ *
+ * The form used to accept any ten digits, so 0000000000 went through, and the
+ * rules only capped the length — which meant a direct API write could put
+ * anything at all into a field the UI renders as a tel: link. Both sides now
+ * use this shape.
+ */
+export const PHONE_RE = /^[6-9][0-9]{9}$/;
+
+export function isValidPhone(raw: string): boolean {
+  return PHONE_RE.test((raw || '').replace(/\D/g, '').slice(-10));
+}
+
 /** Injected from package.json by next.config.js. */
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
 

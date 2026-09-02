@@ -72,7 +72,7 @@ export default function SetupPage() {
         </button>
       </div>
 
-      <p className="mb-4 space-x-3 text-xs text-slate-400">
+      <p className="mb-4 space-x-3 text-xs text-slate-500">
         <span>
           {t('setup.projectLabel')}: <span className="font-mono">{projectId}</span>
         </span>

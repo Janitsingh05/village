@@ -68,7 +68,7 @@ export default function VillagesPage() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-400 shadow-card">
+        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-500 shadow-card">
           {t('super.empty')}
         </p>
       ) : (
@@ -107,7 +107,7 @@ export default function VillagesPage() {
                     </span>
                   )}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-slate-400">
+                <p className="mt-0.5 truncate text-xs text-slate-500">
                   {v.adminName || t('common.none')} · {shortDate(v.createdAt, lang)}
                 </p>
                 {needsReview > 0 && (

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Nothing here is worth indexing and some of it names people: an admin's
+# village screen, a super admin's review queue, a citizen's own filed list.
+Disallow: /admin/
+Disallow: /super-admin/
+Disallow: /my/
+
+Sitemap: https://village-psi-eight.vercel.app/sitemap.xml

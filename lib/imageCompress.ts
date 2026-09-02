@@ -14,7 +14,13 @@ import imageCompression from 'browser-image-compression';
  * full version fetched only when someone opens the complaint.
  */
 const FULL_MAX_BYTES = 300 * 1024;
-const THUMB_MAX_BYTES = 28 * 1024;
+/**
+ * Small, because this one rides on the complaint document and the feed loads
+ * forty of them at once. At 28 KB that was a megabyte of thumbnails per screen
+ * on a 3G phone; at 9 KB it is a third of that, and a 160px tile is all the
+ * feed ever draws.
+ */
+const THUMB_MAX_BYTES = 9 * 1024;
 
 /** Base64 is ~4/3 the size of the bytes; keep a wide margin under 1 MiB. */
 export const MAX_STORED_CHARS = 900_000;
@@ -52,9 +58,16 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
     throw new Error('NOT_AN_IMAGE');
   }
 
+  // HEIC is what an iPhone hands over, and Chrome on Android cannot decode it.
+  // Caught by name rather than by letting the compressor fail, so the message
+  // can say which photo to pick instead of "something went wrong".
+  if (/heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)) {
+    throw new Error('UNSUPPORTED_FORMAT');
+  }
+
   const [fullBlob, thumbBlob] = await Promise.all([
     shrink(file, FULL_MAX_BYTES / (1024 * 1024), 1280, 0.7),
-    shrink(file, THUMB_MAX_BYTES / (1024 * 1024), 360, 0.6),
+    shrink(file, THUMB_MAX_BYTES / (1024 * 1024), 200, 0.55),
   ]);
 
   const [full, thumb] = await Promise.all([toDataUrl(fullBlob), toDataUrl(thumbBlob)]);

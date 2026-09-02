@@ -253,7 +253,7 @@ export default function AdminRegisterPage() {
             </div>
 
             <p className="mt-4 flex items-start gap-2 rounded-2xl bg-slate-50 p-3 text-[12px] leading-snug text-slate-600">
-              <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
               {t('register.proofPrivacy')}
             </p>
           </div>

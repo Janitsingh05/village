@@ -168,7 +168,7 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
         <LanguageStep village={chosen} onPick={finish} onBack={() => setStep('village')} />
       )}
 
-      <p className="mt-auto pt-8 text-center text-[11px] text-slate-400">{t('more.aboutSub')}</p>
+      <p className="mt-auto pt-8 text-center text-[11px] text-slate-500">{t('more.aboutSub')}</p>
     </main>
   );
 }
@@ -234,7 +234,7 @@ function PlaceStep({
         </span>
       </button>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
+      <p className="mt-6 text-center text-xs leading-relaxed text-slate-500">
         जगह सिर्फ़ आपका गाँव ढूँढने के लिए — कहीं सहेजी नहीं जाती।
         <br />
         Location is used only to find your village.
@@ -297,11 +297,15 @@ function VillageStep({
         Choose your village
       </p>
 
-      <div className="relative mt-5">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+      <label htmlFor="village-search" className="mt-5 block text-sm font-bold text-slate-800">
+        गाँव का नाम <span className="font-normal text-slate-500">/ Village name</span>
+      </label>
+      <div className="relative mt-1.5">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
           <Icon name="pin" className="h-5 w-5" />
         </span>
         <input
+          id="village-search"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           autoComplete="off"
@@ -321,7 +325,7 @@ function VillageStep({
         )}
       </div>
 
-      <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
         {searching ? 'खोज के नतीजे · Results' : 'आपके पास · Nearby'}
       </p>
 
@@ -339,7 +343,7 @@ function VillageStep({
                 “{search}” GaonConnect पर अभी नहीं है।
               </span>
               <br />
-              <span className="text-slate-400">
+              <span className="text-slate-500">
                 Not on GaonConnect yet — ask your Panchayat to join.
               </span>
             </>
@@ -347,7 +351,7 @@ function VillageStep({
             <>
               कोई गाँव नहीं मिला।
               <br />
-              <span className="text-slate-400">No village found.</span>
+              <span className="text-slate-500">No village found.</span>
             </>
           )}
         </p>
@@ -467,7 +471,7 @@ function LanguageStep({
         </p>
       )}
 
-      <button onClick={onBack} className="mt-6 w-full text-center text-sm font-semibold text-slate-400">
+      <button onClick={onBack} className="mt-6 w-full text-center text-sm font-semibold text-slate-500">
         ← गाँव बदलें · Change village
       </button>
     </div>

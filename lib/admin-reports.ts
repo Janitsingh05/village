@@ -10,6 +10,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { ensureAnonymous } from './auth';
 import type { AdminReport } from './types';
 
 /**
@@ -46,6 +47,11 @@ export async function reportAdmin(input: {
 }): Promise<void> {
   const reason = input.reason.trim().slice(0, MAX_REASON);
   if (!reason) throw new Error('EMPTY');
+
+  // Still anonymous in every way that matters — no name or number is stored,
+  // and the account is invisible to the person using it. It exists so a flood
+  // can be attributed and stopped.
+  await ensureAnonymous();
 
   await addDoc(col(), {
     villageId: input.villageId,

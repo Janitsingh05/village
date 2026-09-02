@@ -138,7 +138,7 @@ export default function AdminRequestsPage() {
                     {r.role ? ' · ' + r.role : ''}
                   </p>
                   <p className="mt-1 font-mono text-xs text-slate-500">{r.phone}</p>
-                  <p className="mt-1 text-xs text-slate-400">{shortDate(r.createdAt, lang)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{shortDate(r.createdAt, lang)}</p>
                 </div>
                 <span
                   className={'shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ' + CHIP[r.status]}
@@ -218,7 +218,7 @@ function ProofStrip({ request }: { request: AdminRequest }) {
                 </span>
               </button>
             ) : (
-              <p className="grid h-full place-items-center rounded-xl border-2 border-dashed border-slate-200 px-2 py-4 text-center text-[11px] text-slate-400">
+              <p className="grid h-full place-items-center rounded-xl border-2 border-dashed border-slate-200 px-2 py-4 text-center text-[11px] text-slate-500">
                 {it.label} · {t('common.none')}
               </p>
             )}
@@ -311,7 +311,7 @@ function ReviewPanel({
 
   return (
     <div className="mt-3 rounded-2xl bg-slate-50 p-3">
-      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
         {t('super.checklist')}
       </p>
       <ul className="mt-2 space-y-1.5">
@@ -329,7 +329,7 @@ function ReviewPanel({
         rel="noreferrer"
         className="mt-3 flex items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
       >
-        <Icon name="globe" className="h-4 w-4 shrink-0 text-slate-400" />
+        <Icon name="globe" className="h-4 w-4 shrink-0 text-slate-500" />
         <span className="min-w-0 flex-1 truncate">{t('super.openDirectory')}</span>
         <Icon name="arrowRight" className="h-4 w-4 shrink-0 text-slate-300" />
       </a>
@@ -363,7 +363,7 @@ function ReviewPanel({
         <p className="mt-2 text-center text-xs text-slate-500">{t('super.noteRequired')}</p>
       )}
 
-      <button onClick={onCancel} className="mt-2 w-full py-1 text-xs font-semibold text-slate-400">
+      <button onClick={onCancel} className="mt-2 w-full py-1 text-xs font-semibold text-slate-500">
         {t('common.cancel')}
       </button>
     </div>
@@ -381,7 +381,7 @@ function DecisionRecord({ request }: { request: AdminRequest }) {
         <p className="font-semibold text-slate-700">{t('verify.method_' + request.verifiedVia)}</p>
       )}
       {request.verifiedNote && <p className="mt-0.5">{request.verifiedNote}</p>}
-      <p className="mt-1.5 text-xs text-slate-400">
+      <p className="mt-1.5 text-xs text-slate-500">
         {request.decidedAt ? shortDate(request.decidedAt, lang) : ''}
         {request.termEndsAt
           ? ' · ' + t('verify.termUntil', { date: shortDate(request.termEndsAt, lang) })

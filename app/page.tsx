@@ -9,7 +9,7 @@ import StatsCard from '@/components/StatsCard';
 import VillageArt from '@/components/VillageArt';
 import SarpanchCard from '@/components/SarpanchCard';
 import Icon from '@/components/Icon';
-import { subscribeToComplaints, computeStats } from '@/lib/complaints';
+import { subscribeToComplaints, computeStats, countComplaints } from '@/lib/complaints';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 import type { Complaint } from '@/lib/types';
@@ -20,16 +20,31 @@ export default function HomePage() {
   const { lang, t } = useI18n();
   const village = useVillage();
   const [rows, setRows] = useState<Complaint[] | null>(null);
+  const [counts, setCounts] = useState<{ total: number; resolved: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // A short window, because this page draws four rows and four numbers. The
+  // window feeds the averages; the totals are counted on the server.
   useEffect(() => {
     return subscribeToComplaints(
       (list) => {
         setRows(list);
         setError(null);
       },
-      (e) => setError(e.message)
+      (e) => setError(e.message),
+      undefined,
+      20
     );
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    countComplaints()
+      .then((c) => alive && setCounts(c))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const stats = useMemo(() => computeStats(rows || []), [rows]);
@@ -106,14 +121,14 @@ export default function HomePage() {
           <StatsCard
             icon="doc"
             tone="amber"
-            value={String(stats.total)}
+            value={String(counts?.total ?? stats.total)}
             label={t('admin.statTotal')}
             sub={t('home.statTotalSub')}
           />
           <StatsCard
             icon="checkCircle"
             tone="green"
-            value={String(stats.resolvedThisMonth)}
+            value={String(counts?.resolved ?? stats.resolvedThisMonth)}
             label={t('home.statResolvedLabel')}
             sub={t('home.statResolvedSub')}
           />

@@ -76,7 +76,7 @@ export default function AdminReportsPage() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-400 shadow-card">
+        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-500 shadow-card">
           {t('super.noReports')}
         </p>
       ) : (
@@ -106,7 +106,7 @@ export default function AdminReportsPage() {
               <p className="mt-2 whitespace-pre-wrap text-[13px] leading-snug text-slate-700">
                 {r.reason}
               </p>
-              <p className="mt-2 text-xs text-slate-400">{shortDate(r.createdAt, lang)}</p>
+              <p className="mt-2 text-xs text-slate-500">{shortDate(r.createdAt, lang)}</p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Link

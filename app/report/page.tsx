@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppHeader from '@/components/AppHeader';
 import CategoryPicker from '@/components/CategoryPicker';
@@ -9,10 +9,11 @@ import PhotoUpload from '@/components/PhotoUpload';
 import DictateButton from '@/components/DictateButton';
 import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
-import { MAX_PHOTOS, wardOptions } from '@/lib/config';
+import { MAX_PHOTOS, wardOptions, isValidPhone } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { reverseGeocode, type Place } from '@/lib/geocode';
 import { rememberMe } from '@/lib/me';
+import { saveDraft, loadDraft, clearDraft } from '@/lib/draft';
 import { complaintHref } from '@/lib/route-id';
 import type { CategoryId } from '@/lib/types';
 
@@ -36,6 +37,27 @@ export default function ReportPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  // Bring back whatever was typed last time, once, on mount. Photos are not
+  // kept — a File cannot be stored — so the picker starts empty either way.
+  useEffect(() => {
+    const draft = loadDraft();
+    if (!draft) return;
+    setCategory((draft.category as CategoryId) || null);
+    setDescription(draft.description);
+    setWard(draft.ward);
+    setName(draft.name);
+    setPhone(draft.phone);
+    if (draft.ward) setLocMode('ward');
+    setRestored(true);
+  }, []);
+
+  // Saved as they type rather than on unload: a browser the system kills to
+  // reclaim memory never fires unload, and that is the case worth surviving.
+  useEffect(() => {
+    saveDraft({ category, description, ward, name, phone });
+  }, [category, description, ward, name, phone]);
 
   function getLocation() {
     if (!('geolocation' in navigator)) {
@@ -73,7 +95,7 @@ export default function ReportPage() {
     !!category &&
     description.trim().length >= 5 &&
     hasLocation &&
-    phoneDigits.length === 10 &&
+    isValidPhone(phoneDigits) &&
     !submitting;
 
   async function onSubmit(e: React.FormEvent) {
@@ -95,9 +117,10 @@ export default function ReportPage() {
         reporterPhone: phoneDigits,
       });
       rememberMe({ name: name.trim(), phone: phoneDigits });
+      clearDraft();
       router.push(complaintHref(id) + '&new=1');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('report.failed'));
+      setError(t('report.failed'));
       setSubmitting(false);
     }
   }
@@ -125,6 +148,13 @@ export default function ReportPage() {
           </span>
           <Icon name="arrowRight" className="h-6 w-6 shrink-0" strokeWidth={2.2} />
         </Link>
+
+        {restored && (
+          <p className="mb-4 flex items-start gap-2.5 rounded-2xl bg-amber-50 p-3 text-[13px] leading-snug text-amber-900">
+            <Icon name="clock" className="mt-0.5 h-4 w-4 shrink-0" />
+            {t('report.draftRestored')}
+          </p>
+        )}
 
         <div className="mb-5 flex items-start gap-2.5 rounded-2xl bg-brand-50 p-3">
           <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-white">
@@ -157,7 +187,7 @@ export default function ReportPage() {
                 onText={(text) => setDescription(text.slice(0, DESC_MAX))}
                 current={description}
               />
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {description.length}/{DESC_MAX}
               </p>
             </div>
@@ -272,7 +302,7 @@ export default function ReportPage() {
             <p className="text-center text-xs text-slate-500">{t('report.requirements')}</p>
           )}
 
-          <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-400">
+          <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-500">
             <Icon name="checkCircle" className="h-3.5 w-3.5 shrink-0" />
             {t('report.footerNote')}
           </p>

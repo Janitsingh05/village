@@ -164,6 +164,27 @@ Then sign in at `/super-admin/login` with that email. From there, an admin whose
 old phone account is stranded is handled the same way as anyone else: they
 register with an email, and you approve the application.
 
+## Anonymous sign-in must be on before these rules deploy
+
+Citizens never see a login screen and that has not changed. But the rules now
+require an account on every write, and the account the app creates for a citizen
+is an anonymous one — invisible, no password, nothing to remember. What it buys
+is a stable UID, and with it two rules worth having: a complaint can only be
+confirmed fixed by the device that filed it, and a flood can be attributed to an
+account and cut off.
+
+Firebase console -> Authentication -> Sign-in method -> **Anonymous** -> Enable.
+
+Deploy the rules only after that switch is on. The client is written to survive
+the gap in one direction — with the provider off it files complaints without a
+UID, losing only "my complaints" and the fix-confirmation button — but rules
+that demand a UID against a project that cannot issue one refuse every complaint
+in the village.
+
+What this still is not: a rate limit. Rules cannot count events over time
+without a server. **App Check** is the next thing to turn on; it is free with
+the reCAPTCHA v3 provider and blocks clients that are not this app at all.
+
 ## Deploying the Firestore rules
 
 **Pushing to `main` deploys the app, not the rules.** Vercel builds from git;

@@ -39,7 +39,7 @@ export default function AdminAnnouncementsPage() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-400 shadow-card">
+        <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-500 shadow-card">
           {t('announce.empty')}
         </p>
       ) : (
@@ -58,7 +58,7 @@ export default function AdminAnnouncementsPage() {
               </span>
               <p className="mt-2 font-bold text-slate-900">{a.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-slate-600">{a.body}</p>
-              <p className="mt-2 text-xs text-slate-400">{shortDate(a.createdAt, lang)}</p>
+              <p className="mt-2 text-xs text-slate-500">{shortDate(a.createdAt, lang)}</p>
             </li>
           ))}
         </ul>

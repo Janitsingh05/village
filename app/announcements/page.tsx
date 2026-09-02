@@ -102,7 +102,7 @@ export default function AnnouncementsPage() {
                       className="mt-3 w-full rounded-xl object-cover"
                     />
                   )}
-                  <p className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-400">
+                  <p className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <Icon name="megaphone" className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{a.postedBy || t('announce.postedBy')}</span>

@@ -76,7 +76,7 @@ export default function VoicePlayer({
   if (state === 'missing' || state === 'unplayable') {
     return (
       <p className="flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-        <Icon name="mic" className="h-4 w-4 shrink-0 text-slate-400" />
+        <Icon name="mic" className="h-4 w-4 shrink-0 text-slate-500" />
         {t(state === 'missing' ? 'voice.playMissing' : 'voice.playUnsupported')}
       </p>
     );

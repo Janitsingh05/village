@@ -107,7 +107,7 @@ export default function AdminComplaintsPage() {
       </div>
 
       <div className="overflow-hidden rounded-3xl bg-white shadow-card">
-        <div className="hidden grid-cols-[1fr_10rem_8rem_7rem_1.5rem] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-400 sm:grid">
+        <div className="hidden grid-cols-[1fr_10rem_8rem_7rem_1.5rem] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-500 sm:grid">
           <span>{t('admin.colComplaint')}</span>
           <span>{t('admin.colCategory')}</span>
           <span>{t('admin.colStatus')}</span>
@@ -122,7 +122,7 @@ export default function AdminComplaintsPage() {
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <p className="p-8 text-center text-sm text-slate-400">{t('admin.emptyFilter')}</p>
+          <p className="p-8 text-center text-sm text-slate-500">{t('admin.emptyFilter')}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {visible.map((c) => (
@@ -147,7 +147,7 @@ export default function AdminComplaintsPage() {
                       <span className="block truncate text-sm font-semibold text-slate-900">
                         {c.description}
                       </span>
-                      <span className="block truncate text-xs text-slate-400">
+                      <span className="block truncate text-xs text-slate-500">
                         {wardLabel(c.location.ward, lang) || t('common.none')} · {c.ref}
                       </span>
                     </span>

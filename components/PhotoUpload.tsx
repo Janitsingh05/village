@@ -66,7 +66,13 @@ export default function PhotoUpload({
           });
         } catch (err) {
           const code = err instanceof Error ? err.message : '';
-          setError(code === 'PHOTO_TOO_LARGE' ? t('report.photoTooLarge') : t('report.photoFailed'));
+          setError(
+            code === 'PHOTO_TOO_LARGE'
+              ? t('report.photoTooLarge')
+              : code === 'UNSUPPORTED_FORMAT'
+                ? t('report.photoFormat')
+                : t('report.photoFailed')
+          );
         }
       }
       if (accepted.length) publish([...picked, ...accepted]);
@@ -166,7 +172,7 @@ export default function PhotoUpload({
         />
       )}
 
-      <p className="mt-2 text-center text-[11px] text-slate-400">
+      <p className="mt-2 text-center text-[11px] text-slate-500">
         {max > 1 ? t('report.photoLimitMulti', { n: max, used: picked.length }) : t('report.photoLimit')}
       </p>
       {error && <p className="mt-1 text-center text-xs font-medium text-red-600">{error}</p>}

@@ -49,9 +49,24 @@ export interface Complaint {
     address?: string;
   };
   status: ComplaintStatus;
+  /**
+   * The device that filed this, from anonymous auth.
+   *
+   * Opaque and safe to publish — it names nobody. It is what lets the rules
+   * allow the reporter to confirm a fix without letting the whole internet do
+   * it, and what "my complaints" matches on now that the phone number has left
+   * the public document.
+   */
+  reporterUid: string;
   reportedBy: {
     name: string;
-    phone: string;
+    /**
+     * Masked to 85xxxxxx07, and masked in the database rather than only in the
+     * UI. The full number lives in a sibling document that only this village's
+     * admins can read — publishing a complainant's name, phone and house
+     * location together is a safety problem, not a privacy nicety.
+     */
+    phoneMasked: string;
   };
   resolutionPhotoUrl: string | null;
   resolutionNote: string | null;

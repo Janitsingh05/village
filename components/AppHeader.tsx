@@ -30,7 +30,7 @@ export default function AppHeader({
           <Link
             href={back}
             aria-label={t('common.back')}
-            className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
+            className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
           >
             <Icon name="back" className="h-6 w-6" />
           </Link>
@@ -38,7 +38,7 @@ export default function AppHeader({
           <Link
             href="/more"
             aria-label={t('nav.menu')}
-            className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
+            className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
           >
             <Icon name="menu" className="h-6 w-6" strokeWidth={2} />
           </Link>
@@ -66,7 +66,7 @@ export default function AppHeader({
           <Link
             href="/announcements"
             aria-label={t('nav.notifications')}
-            className="relative -mr-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
+            className="relative -mr-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-700 hover:bg-slate-100"
           >
             <Icon name="bell" className="h-6 w-6" />
             {unread && (

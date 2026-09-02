@@ -81,14 +81,55 @@ async function fromBigDataCloud(lat: number, lng: number, lang: string): Promise
   );
 }
 
+/**
+ * Results already looked up, keyed to about a 100-metre square.
+ *
+ * Nominatim's usage policy caps bulk traffic and a whole village shares one
+ * tower's address, so the same handpump reported twice should not be two
+ * lookups. Rounding to three decimals is roughly a street corner — precise
+ * enough that the cached name still describes the place.
+ */
+const PLACE_CACHE_KEY = 'gaonconnect:places';
+
+function cacheKey(lat: number, lng: number, lang: string): string {
+  return lat.toFixed(3) + ',' + lng.toFixed(3) + ',' + lang;
+}
+
+function readCache(): Record<string, Place> {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(PLACE_CACHE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
 export async function reverseGeocode(lat: number, lng: number, lang = 'hi'): Promise<Place | null> {
-  return (
+  const key = cacheKey(lat, lng, lang);
+  const cache = readCache();
+  if (cache[key]) return cache[key];
+
+  const place =
     (await fromNominatim(lat, lng, lang)) ??
     (await fromBigDataCloud(lat, lng, lang)) ??
     // Offline or both refused — the complaint still carries its coordinates,
     // it just has no readable name attached.
-    null
-  );
+    null;
+
+  if (place) {
+    try {
+      // Bounded, so a well-travelled phone does not fill its storage quota.
+      const entries = Object.entries(cache).slice(-40);
+      window.localStorage.setItem(
+        PLACE_CACHE_KEY,
+        JSON.stringify({ ...Object.fromEntries(entries), [key]: place })
+      );
+    } catch {
+      /* private mode, or quota — the lookup still worked */
+    }
+  }
+
+  return place;
 }
 
 /* ----------------------------- forward search ----------------------------- */

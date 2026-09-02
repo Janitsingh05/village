@@ -24,7 +24,7 @@ export default function ConfigGate({ children }: { children: React.ReactNode }) 
           same data. Until these keys are set there is no backend to talk to.
         </p>
 
-        <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-400">
+        <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">
           Missing values
         </p>
         <ul className="mt-2 space-y-1">

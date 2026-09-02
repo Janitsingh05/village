@@ -92,7 +92,7 @@ export default function PerformancePage() {
               {view.avg.toFixed(1)} {t('common.days')}
             </p>
             <p className="mt-2 text-sm font-semibold text-slate-700">{t('perf.avgAll')}</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               {t('perf.resolvedCount', { n: view.solved.length })}
             </p>
           </>
@@ -141,7 +141,7 @@ export default function PerformancePage() {
                     <span className="block text-sm font-bold text-slate-900">
                       {row.avg.toFixed(1)}
                     </span>
-                    <span className="block text-[10px] text-slate-400">{t('common.days')}</span>
+                    <span className="block text-[10px] text-slate-500">{t('common.days')}</span>
                   </span>
                 </Link>
               </li>
@@ -169,7 +169,7 @@ export default function PerformancePage() {
                     <span className="block truncate text-sm font-semibold text-slate-900">
                       {c.description}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-500">
                       {t('perf.openFor', { n: Math.round(days) })}
                     </span>
                   </span>
@@ -199,7 +199,7 @@ function Extreme({
       href={adminComplaintHref(entry.c.id)}
       className="rounded-2xl bg-white p-3 shadow-card transition active:scale-[0.98]"
     >
-      <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+      <p className="text-[11px] font-semibold text-slate-500">{label}</p>
       <p className={'mt-1 text-lg font-bold leading-none ' + tone}>
         {t('perf.resolvedIn', { n: entry.days.toFixed(1) })}
       </p>

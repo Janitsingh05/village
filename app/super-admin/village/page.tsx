@@ -121,7 +121,7 @@ export default function SuperVillagePage() {
         <p className="mt-0.5 text-sm text-slate-500">
           {[village.district, village.state].filter(Boolean).join(', ')}
         </p>
-        <p className="mt-1 font-mono text-[11px] text-slate-400">{village.id}</p>
+        <p className="mt-1 font-mono text-[11px] text-slate-500">{village.id}</p>
       </header>
 
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
@@ -135,7 +135,7 @@ export default function SuperVillagePage() {
       />
 
       <section>
-        <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+        <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           {t('super.adminsHeading')}
         </h2>
 
@@ -381,7 +381,7 @@ function AdminCard({
           </p>
           <p className="mt-1 truncate font-mono text-xs text-slate-500">{admin.email}</p>
           {admin.phone && (
-            <p className="truncate font-mono text-[11px] text-slate-400">{admin.phone}</p>
+            <p className="truncate font-mono text-[11px] text-slate-500">{admin.phone}</p>
           )}
         </div>
         <span className={'shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ' + TERM_CHIP[state]}>
@@ -392,7 +392,7 @@ function AdminCard({
       <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-[13px] leading-snug text-slate-600">
         <p className="font-semibold text-slate-700">{t('verify.method_' + admin.verifiedVia)}</p>
         {admin.verifiedNote && <p className="mt-0.5">{admin.verifiedNote}</p>}
-        <p className="mt-1.5 text-xs text-slate-400">
+        <p className="mt-1.5 text-xs text-slate-500">
           {t('verify.verifiedOn', { date: shortDate(admin.verifiedAt, lang) })}
           {admin.termEndsAt
             ? ' · ' + t('verify.termUntil', { date: shortDate(admin.termEndsAt, lang) })
@@ -402,7 +402,7 @@ function AdminCard({
 
       {renewing ? (
         <div className="mt-3 rounded-2xl bg-slate-50 p-3">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
             {t('super.renewHeading')}
           </p>
           <VerificationFields value={v} onChange={setV} />

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { VILLAGE } from '@/lib/config';
+import { VILLAGE, SITE_URL } from '@/lib/config';
 import { LanguageProvider } from '@/lib/i18n';
 import { VillageProvider } from '@/lib/village-context';
 import ServiceWorker from '@/components/ServiceWorker';
@@ -12,6 +12,26 @@ export const metadata: Metadata = {
   description: 'गाँव की समस्या दर्ज करें और समाधान की स्थिति देखें। · Report and track village civic issues.',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, title: 'GaonConnect', statusBarStyle: 'default' },
+  // This app spreads by someone pasting the link into a village WhatsApp group.
+  // Without these the paste is a bare URL, which reads as spam next to every
+  // other link in the thread — so the share card is a distribution feature, not
+  // an SEO nicety.
+  metadataBase: new URL(SITE_URL),
+  openGraph: {
+    type: 'website',
+    siteName: 'GaonConnect',
+    locale: 'hi_IN',
+    title: 'GaonConnect · ' + VILLAGE.nameHi,
+    description: 'गाँव की समस्या फ़ोटो के साथ दर्ज करें — सीधे पंचायत तक। स्थिति यहीं दिखेगी.',
+    images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'GaonConnect' }],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'GaonConnect · ' + VILLAGE.nameHi,
+    description: 'गाँव की समस्या फ़ोटो के साथ दर्ज करें — सीधे पंचायत तक।',
+    images: ['/icons/icon-512.png'],
+  },
+  alternates: { canonical: '/' },
   // Generated from assets/brand/logo.png by `npm run logo`. The tab favicon is
   // the cropped artwork, not the full badge — the wordmark is illegible at
   // 16px and only muddies the mark.
