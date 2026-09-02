@@ -145,6 +145,25 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 - **Public phone numbers are masked** (`98xxxxxx10`) on the citizen-facing
   detail page; admins see the full number as a `tel:` link.
 
+## If phone sign-in was how you got in
+
+Dropping OTP means an account that only ever existed as a phone number cannot
+sign in any more — including a super admin bootstrapped against one. There is no
+migration for this, because a Firebase phone account and an email account are
+different accounts with different UIDs; the fix is to make an email account and
+point the super-admin role at it.
+
+No service account key needed:
+
+1. Firebase console -> Authentication -> Users -> **Add user**, with an email
+   and a password. Copy the UID it creates.
+2. Firestore -> `users` -> add a document with that UID as its id, holding
+   `role: "superadmin"`.
+
+Then sign in at `/super-admin/login` with that email. From there, an admin whose
+old phone account is stranded is handled the same way as anyone else: they
+register with an email, and you approve the application.
+
 ## Deploying the Firestore rules
 
 **Pushing to `main` deploys the app, not the rules.** Vercel builds from git;
