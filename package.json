@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "bootstrap": "node scripts/bootstrap.mjs",
-    "logo": "node scripts/logo-assets.mjs"
+    "logo": "node scripts/logo-assets.mjs",
+    "locales": "node scripts/locale-coverage.mjs"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",

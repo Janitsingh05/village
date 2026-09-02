@@ -45,6 +45,26 @@ export function activeVillageId(): string {
   return cached;
 }
 
+/**
+ * Whether this device has ever settled on a village.
+ *
+ * Distinct from activeVillageId(), which always answers with something — the
+ * env default if nothing else. The welcome flow needs to know the difference
+ * between "chose the pilot village" and "never chose", and a value that falls
+ * back cannot tell them apart.
+ */
+export function hasChosenVillage(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    if (new URLSearchParams(window.location.search).get('v')) return true;
+    return Boolean(window.localStorage.getItem(KEY));
+  } catch {
+    // No storage to read means no way to remember an answer either, so asking
+    // on every load would be worse than showing the default village.
+    return true;
+  }
+}
+
 export function setActiveVillage(id: string): void {
   if (!id) return;
   cached = id;

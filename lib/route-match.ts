@@ -18,3 +18,12 @@ export function samePath(a: string, b: string): boolean {
 export function isOneOf(pathname: string, routes: string[]): boolean {
   return routes.some((route) => samePath(pathname, route));
 }
+
+/** True for the route itself and everything under it, slash or no slash. */
+export function isUnderAny(pathname: string, prefixes: string[]): boolean {
+  const path = normalise(pathname);
+  return prefixes.some((prefix) => {
+    const base = normalise(prefix);
+    return path === base || path.startsWith(base + '/');
+  });
+}

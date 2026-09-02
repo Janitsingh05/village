@@ -1,9 +1,13 @@
+import { LANGUAGES } from './languages';
 import type { Lang } from './i18n';
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 function locale(lang: Lang): string {
-  return lang === 'en' ? 'en-IN' : 'hi-IN';
+  // Every language carries its own BCP-47 tag, so dates read the way that
+  // language writes them rather than falling into Hindi for everything but
+  // English.
+  return LANGUAGES[lang]?.tag ?? 'hi-IN';
 }
 
 /** Short "how long ago" string in the active language. */

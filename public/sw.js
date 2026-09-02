@@ -8,7 +8,7 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
@@ -17,6 +17,10 @@ const PRECACHE = [
   '/report/',
   '/announcements/',
   '/manifest.json',
+  // The active language is fetched now rather than bundled, so the fallback
+  // dictionary has to survive a dropped connection like any other shell asset.
+  '/locales/hi.json',
+  '/locales/en.json',
   '/logo.png',
   '/logo-mark.png',
   '/icons/icon-192.png',
@@ -52,6 +56,7 @@ function isBuildAsset(url) {
   return (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
+    url.pathname.startsWith('/locales/') ||
     url.pathname === '/logo.png' ||
     url.pathname === '/logo-mark.png'
   );

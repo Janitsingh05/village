@@ -35,6 +35,67 @@ export async function listVillages(): Promise<Village[]> {
   });
 }
 
+/* ------------------------------ finding one ------------------------------ */
+
+const EARTH_RADIUS_KM = 6371;
+
+/** Great-circle distance. Plenty accurate at village scale. */
+export function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+export interface NearbyVillage {
+  village: Village;
+  /** Null when the village was matched by district rather than by distance. */
+  km: number | null;
+}
+
+/**
+ * The villages closest to a point, nearest first.
+ *
+ * A village onboarded off the map has coordinates and can be measured. One
+ * typed in by hand has none, so it is matched on district instead and listed
+ * after everything measurable — still findable, just not claiming a precision
+ * it does not have.
+ *
+ * Every village is read and sorted in the browser. At pilot scale that is one
+ * query instead of a geo index; past a few hundred villages it stops being the
+ * right answer, and the fix is a district field on the query.
+ */
+export function rankByProximity(
+  villages: Village[],
+  at: { lat: number; lng: number } | null,
+  place: { district?: string; state?: string } = {}
+): NearbyVillage[] {
+  const district = (place.district || '').trim().toLowerCase();
+  const state = (place.state || '').trim().toLowerCase();
+
+  const measured: NearbyVillage[] = [];
+  const guessed: NearbyVillage[] = [];
+
+  for (const village of villages) {
+    if (at && village.location) {
+      measured.push({ village, km: distanceKm(at, village.location) });
+      continue;
+    }
+    const inDistrict = district && village.district.trim().toLowerCase() === district;
+    const inState = state && village.state.trim().toLowerCase() === state;
+    if (inDistrict || inState) guessed.push({ village, km: null });
+  }
+
+  measured.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
+  return [...measured, ...guessed];
+}
+
 export interface NewVillageInput {
   name: string;
   /** The panchayat's Local Government Directory code, if it is known. */

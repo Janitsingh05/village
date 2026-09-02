@@ -145,6 +145,68 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 - **Public phone numbers are masked** (`98xxxxxx10`) on the citizen-facing
   detail page; admins see the full number as a `tel:` link.
 
+## Language, and the order the questions come in
+
+First run asks three things in this order: **where are you → which village →
+which language**. The order is the whole design. Asking for a language first
+means asking a question in a language the reader may not have; asking for the
+place first lets the app work out which language to offer, so the only question
+left is one they answer by recognising their own script.
+
+- **Step one** (`components/Welcome.tsx`) is the one screen written in Hindi and
+  English at once, with a map-pin icon carrying most of the meaning — nothing is
+  known about the reader yet. GPS is a button, never a requirement: denied or no
+  fix indoors falls through to a list and a search box.
+- **Step two** ranks villages by distance from the fix (`rankByProximity`),
+  using the coordinates already stored on every village onboarded off the map.
+  Villages typed in by hand have no coordinates and are matched on district
+  instead, listed after everything measurable rather than claiming a precision
+  they do not have.
+- **Step three** offers two buttons, each written in its own script and nothing
+  else. No Latin gloss under the endonym, no flags: someone who reads only Tamil
+  recognises தமிழ் the way they recognise a shop sign, and "Tamil" in Latin
+  letters helps only the people who never needed the screen.
+
+`lib/languages.ts` maps all 36 states and union territories to a language.
+Eleven languages cover roughly 95% of rural India. The map is a starting guess
+that saves most people a decision, never a claim about what anyone speaks — it
+rounds off real edges (Bihar's villages speak Bhojpuri and Maithili long before
+textbook Hindi), and Nagaland, Meghalaya, Mizoram and Arunachal Pradesh sit on
+English because that is what their official business runs on.
+
+### A language is only offered once it is finished
+
+`TRANSLATED` in `lib/languages.ts` gates the picker, and today it holds Hindi
+and English. Everything else in the map is a slot, not a promise. A villager in
+Tamil Nadu is currently offered Hindi and English with an explicit note that
+**தமிழ் அभी तैयार नहीं है** — because half a translation is worse than none: a
+screen that starts in Tamil and finishes in Hindi reads as broken software, and
+this app asks people to trust it with a complaint about their own village.
+
+Adding a language is three steps, and step two is not an engineering task:
+
+```bash
+cp public/locales/hi.json public/locales/ta.json   # 1. copy the reference
+#                                                    2. have a native speaker
+#                                                       translate the values
+npm run locales                                    # 3. check it is complete,
+#                                                       then add 'ta' to TRANSLATED
+```
+
+`npm run locales` compares every dictionary against Hindi and reports what is
+missing, what is still identical to Hindi (an untranslated stub, almost always),
+and what no longer exists in the reference.
+
+### Dictionaries are fetched, not bundled
+
+`lib/i18n.tsx` used to import both JSON files, on the reasoning that two small
+dictionaries cost less than a round trip. That holds for two and stops holding
+at twelve — eleven inlined would put ~180 KB of text nobody reads into the first
+paint of a 3G page. Hindi still ships with the app, because `t()` has to answer
+synchronously from the first render and it is what every missing key falls
+through to; everything else is fetched from `public/locales/` and cached
+cache-first by the service worker.
+
 ## How an admin is verified
 
 The hard question this app has to answer is not "can this person log in" but
@@ -226,9 +288,10 @@ app/super-admin village onboarding, admin requests, resident objections
 components/     ComplaintCard, StatusBadge, CategoryPicker, PhotoUpload, Navbar
 lib/            firebase, complaints (data layer), auth, config, imageCompress
 lib/tenant      resolves which village this session is looking at
+lib/languages   state to language map, endonyms, which are translated yet
 public/         PWA manifest + generated icons and logos
 assets/brand    the source logo, never served (see Branding)
-scripts/        one-off tooling (bootstrap, logo assets)
+scripts/        one-off tooling (bootstrap, logo assets, locale coverage)
 ```
 
 ## Branding
