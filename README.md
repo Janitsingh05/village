@@ -146,6 +146,40 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 - **Public phone numbers are masked** (`98xxxxxx10`) on the citizen-facing
   detail page; admins see the full number as a `tel:` link.
 
+## Deploying the Firestore rules
+
+**Pushing to `main` deploys the app, not the rules.** Vercel builds from git;
+`firestore.rules` lives in the same repo and goes nowhere until it is deployed
+separately:
+
+```bash
+npx firebase deploy --only firestore:rules
+```
+
+Forget it and the app looks broken in ways that point everywhere but here — a
+spoken complaint that will not send, an admin application refused, a resident
+objection that vanishes. Every one of those is a rule the running project has
+never seen. Run it whenever `firestore.rules` changes.
+
+## Clearing test data
+
+`npm run reset-data` empties a project of the complaints, announcements,
+applications and objections left behind by testing, and blanks the Sarpanch name
+and photo on the public card. Admin phone numbers and their records survive:
+clearing test content is not the same as locking people out.
+
+It deletes real documents and cannot be undone, so it does nothing without both
+a service account key and `--yes`:
+
+```bash
+node scripts/reset-data.mjs --key ./serviceAccount.json          # prints what would go
+node scripts/reset-data.mjs --key ./serviceAccount.json --yes    # deletes it
+```
+
+Subcollections are walked explicitly, because Firestore does not delete them
+with their parent — the photos and recordings under a deleted complaint would
+otherwise sit in the project forever, invisible and still counted.
+
 ## Filing a complaint by speaking
 
 `/report/voice` asks one thing per screen with one large control under it, and

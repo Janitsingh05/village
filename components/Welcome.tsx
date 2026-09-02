@@ -98,14 +98,35 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
     return (close.length ? close : ranked).slice(0, SHOWN);
   }, [ranked]);
 
+  /**
+   * Matches for what has been typed, best first.
+   *
+   * Ranked rather than filtered: typing "ram" should put Rampura at the top,
+   * not somewhere below every village in Ramgarh district. A name that starts
+   * with the query beats one that merely contains it, which beats a district
+   * match — the order a person expects from every search box they have used.
+   */
   const results = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return null;
-    return (villages || [])
-      .filter((v) =>
-        [v.name, v.nameEn, v.district, v.state].some((f) => f.toLowerCase().includes(q))
-      )
-      .slice(0, 12);
+
+    const scored: { village: Village; score: number }[] = [];
+    for (const v of villages || []) {
+      const names = [v.name, v.nameEn].filter(Boolean).map((n) => n.toLowerCase());
+      const where = [v.district, v.state].filter(Boolean).map((n) => n.toLowerCase());
+
+      let score = 0;
+      if (names.some((n) => n.startsWith(q))) score = 3;
+      else if (names.some((n) => n.includes(q))) score = 2;
+      else if (where.some((n) => n.includes(q))) score = 1;
+
+      if (score) scored.push({ village: v, score });
+    }
+
+    return scored
+      .sort((a, b) => b.score - a.score || a.village.name.localeCompare(b.village.name))
+      .slice(0, 12)
+      .map((r) => r.village);
   }, [search, villages]);
 
   function pick(village: Village) {
@@ -224,6 +245,18 @@ function PlaceStep({
 
 /* --------------------------------- step 2 --------------------------------- */
 
+/**
+ * Choosing a village, the way a search box is expected to behave.
+ *
+ * The list starts as the nearest few and turns into ranked matches the moment
+ * anything is typed, with the query highlighted in each row — an address bar,
+ * not a form field with a filter bolted on.
+ *
+ * Only villages already on GaonConnect can be picked, because the app has
+ * nowhere to send a complaint about one that is not. When nothing matches, the
+ * screen says exactly that instead of leaving someone typing their village name
+ * into a box that keeps coming back empty.
+ */
 function VillageStep({
   place,
   gpsFailed,
@@ -245,47 +278,81 @@ function VillageStep({
   onPick: (v: Village) => void;
   onRetryGps: () => void;
 }) {
-  const shown: NearbyVillage[] = results
+  const searching = results !== null;
+  const shown: NearbyVillage[] = searching
     ? results.map((village) => ({ village, km: null }))
     : nearby;
 
   return (
     <div className="mt-6">
-      {place && (
+      {place && !searching && (
         <p className="flex items-center justify-center gap-1.5 rounded-full bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-800">
           <Icon name="pin" className="h-4 w-4 shrink-0" />
           <span className="truncate">{place.display}</span>
         </p>
       )}
 
-      <h1 className="mt-5 text-center text-xl font-extrabold text-slate-900">
-        अपना गाँव चुनें
-      </h1>
+      <h1 className="mt-5 text-center text-xl font-extrabold text-slate-900">अपना गाँव चुनें</h1>
       <p className="mt-0.5 text-center text-base font-semibold text-slate-500">
         Choose your village
       </p>
 
-      <input
-        value={search}
-        onChange={(e) => onSearch(e.target.value)}
-        placeholder="गाँव का नाम / Village name"
-        className="field mt-5"
-      />
+      <div className="relative mt-5">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <Icon name="pin" className="h-5 w-5" />
+        </span>
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          autoComplete="off"
+          enterKeyHint="search"
+          placeholder="गाँव का नाम लिखें / Type a village name"
+          className="field pl-12 pr-11"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => onSearch('')}
+            aria-label="साफ़ करें / Clear"
+            className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-slate-100 text-slate-500"
+          >
+            <Icon name="plus" className="h-4 w-4 rotate-45" strokeWidth={2.6} />
+          </button>
+        )}
+      </div>
+
+      <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {searching ? 'खोज के नतीजे · Results' : 'आपके पास · Nearby'}
+      </p>
 
       {loading ? (
-        <div className="mt-4 space-y-2">
+        <div className="mt-2 space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <p className="mt-6 rounded-3xl bg-white p-6 text-center text-sm leading-relaxed text-slate-500 shadow-card">
-          कोई गाँव नहीं मिला।
-          <br />
-          <span className="text-slate-400">No village found.</span>
+        <p className="mt-4 rounded-3xl bg-white p-6 text-center text-sm leading-relaxed text-slate-500 shadow-card">
+          {searching ? (
+            <>
+              <span className="font-bold text-slate-700">
+                “{search}” GaonConnect पर अभी नहीं है।
+              </span>
+              <br />
+              <span className="text-slate-400">
+                Not on GaonConnect yet — ask your Panchayat to join.
+              </span>
+            </>
+          ) : (
+            <>
+              कोई गाँव नहीं मिला।
+              <br />
+              <span className="text-slate-400">No village found.</span>
+            </>
+          )}
         </p>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-2 space-y-2">
           {shown.map(({ village, km }) => (
             <li key={village.id}>
               <button
@@ -297,7 +364,7 @@ function VillageStep({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-base font-bold text-slate-900">
-                    {village.name}
+                    <Highlight text={village.name} query={search} />
                   </span>
                   <span className="block truncate text-xs text-slate-500">
                     {[village.district, village.state].filter(Boolean).join(', ')}
@@ -314,7 +381,7 @@ function VillageStep({
         </ul>
       )}
 
-      {gpsFailed && !results && (
+      {gpsFailed && !searching && (
         <button
           onClick={onRetryGps}
           className="mt-4 w-full text-center text-sm font-semibold text-brand-700"
@@ -323,6 +390,23 @@ function VillageStep({
         </button>
       )}
     </div>
+  );
+}
+
+/** The matched part of a name, marked — so it is obvious why a row is listed. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+
+  const at = text.toLowerCase().indexOf(q.toLowerCase());
+  if (at < 0) return <>{text}</>;
+
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="bg-brand-100 text-brand-900">{text.slice(at, at + q.length)}</mark>
+      {text.slice(at + q.length)}
+    </>
   );
 }
 

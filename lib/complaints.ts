@@ -170,6 +170,27 @@ export async function createComplaint(
     }
   }
 
+  // The recording goes first, and its failure is fatal.
+  //
+  // It used to be written after the complaint and its error swallowed, which
+  // produced the worst possible outcome: a complaint claiming to have a voice
+  // note, a play button with nothing behind it, and a reporter who was told
+  // their spoken complaint went through. For a spoken complaint the audio *is*
+  // the complaint — so if it cannot be stored, nothing is created and the
+  // reporter is told to try again.
+  //
+  // A denial here almost always means the Firestore rules on the project are
+  // older than this code: `kind == 'voice'` has to be allowed in
+  // firestore.rules, and pushing the app does not deploy those.
+  if (input.voice) {
+    await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
+      data: input.voice.dataUrl,
+      mimeType: input.voice.mimeType,
+      seconds: input.voice.seconds,
+      createdAt: serverTimestamp(),
+    });
+  }
+
   await setDoc(docRef, {
     villageId,
     category: input.category,
@@ -198,28 +219,17 @@ export async function createComplaint(
     updatedAt: serverTimestamp(),
   });
 
-  await Promise.all([
-    ...fulls.map((data, i) =>
+  await Promise.all(
+    fulls.map((data, i) =>
       setDoc(mediaDoc(villageId, docRef.id, 'photo-' + i), {
         data,
         createdAt: serverTimestamp(),
       }).catch(() => {
-        // The feed still shows the thumbnail; only the full view loses one.
+        // Best-effort, unlike the recording: the feed still shows the
+        // thumbnail, so only the full view loses one image.
       })
-    ),
-    input.voice
-      ? setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
-          data: input.voice.dataUrl,
-          mimeType: input.voice.mimeType,
-          seconds: input.voice.seconds,
-          createdAt: serverTimestamp(),
-        }).catch(() => {
-          // The complaint still carries its transcript and its photo. Worth
-          // saying out loud on the detail screen rather than showing a play
-          // button that plays nothing — see getVoiceNote.
-        })
-      : Promise.resolve(),
-  ]);
+    )
+  );
 
   return docRef.id;
 }

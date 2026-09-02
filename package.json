@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "bootstrap": "node scripts/bootstrap.mjs",
     "logo": "node scripts/logo-assets.mjs",
-    "locales": "node scripts/locale-coverage.mjs"
+    "locales": "node scripts/locale-coverage.mjs",
+    "reset-data": "node scripts/reset-data.mjs"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",

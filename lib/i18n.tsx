@@ -2,19 +2,26 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import hi from '@/public/locales/hi.json';
+import en from '@/public/locales/en.json';
 import { LANGUAGES, TRANSLATED, type Lang } from './languages';
 
 export type { Lang };
 
 /**
- * Hindi is bundled; every other language is fetched.
+ * The dictionaries that exist today ship with the app; the rest are fetched.
  *
- * This used to bundle both dictionaries, on the reasoning that two small files
- * cost less than a round trip. That holds for two and stops holding at twelve —
- * eleven languages inlined would put ~180 KB of text nobody reads into the
- * first paint of a 3G page. So the fallback ships with the app, because `t()`
- * has to answer synchronously from the very first render, and the rest are
- * fetched from `public/locales/` and cached by the service worker.
+ * The bundle argument cuts both ways and the line is at two. Inlining eleven
+ * languages would put ~180 KB of text nobody reads into the first paint of a 3G
+ * page — but making the header toggle wait on a network round trip turns an
+ * instant switch into a second of nothing happening, on the connection least
+ * able to afford it, and reads as a broken button.
+ *
+ * So Hindi and English are both bundled: Hindi because `t()` has to answer
+ * synchronously from the first render and is what every missing key falls
+ * through to, English because switching to it has to feel immediate. A twelfth
+ * language is fetched from `public/locales/` and cached by the service worker,
+ * and this comment is the reason to keep it that way rather than adding each
+ * new one to the bundle.
  */
 const FALLBACK: Lang = 'hi';
 const STORAGE_KEY = 'gaonconnect:lang';
@@ -22,8 +29,11 @@ export const DEFAULT_LANG: Lang = 'hi';
 
 type Dict = Record<string, unknown>;
 
-/** Fetched dictionaries, kept for the life of the tab. */
-const loaded = new Map<Lang, Dict>([[FALLBACK, hi as Dict]]);
+/** Bundled up front, fetched ones added as they land; kept for the tab's life. */
+const loaded = new Map<Lang, Dict>([
+  [FALLBACK, hi as Dict],
+  ['en', en as Dict],
+]);
 const inFlight = new Map<Lang, Promise<Dict | null>>();
 
 async function loadDict(lang: Lang): Promise<Dict | null> {
@@ -55,6 +65,8 @@ interface I18nValue {
   t: (key: string, vars?: Vars) => string;
   /** Languages with a dictionary, for the header toggle and the welcome screen. */
   available: Lang[];
+  /** True while a chosen language is still being fetched. */
+  loading: boolean;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -83,6 +95,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // The dictionaries themselves live in a module-level map: two providers would
   // otherwise each fetch their own copy of the same file.
   const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -97,10 +110,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // from Hindi, so the page renders in the fallback for a moment rather than
   // flashing raw keys.
   useEffect(() => {
-    if (loaded.has(lang)) return;
+    if (loaded.has(lang)) {
+      setLoading(false);
+      return;
+    }
     let alive = true;
+    setLoading(true);
     void loadDict(lang).then((dict) => {
-      if (alive && dict) setRevision((n) => n + 1);
+      if (!alive) return;
+      setLoading(false);
+      if (dict) setRevision((n) => n + 1);
     });
     return () => {
       alive = false;
@@ -137,8 +156,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ lang, setLang, t, available: TRANSLATED }),
-    [lang, setLang, t]
+    () => ({ lang, setLang, t, available: TRANSLATED, loading }),
+    [lang, setLang, t, loading]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

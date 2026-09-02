@@ -60,6 +60,9 @@ export default function VoiceRecorder({
   const [seconds, setSeconds] = useState(0);
   const [levels, setLevels] = useState<number[]>(IDLE);
   const [transcript, setTranscript] = useState('');
+  const [dictationState, setDictationState] = useState<
+    'idle' | 'working' | 'failed' | 'unsupported'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
 
   const recorder = useRef<Recorder | null>(null);
@@ -83,6 +86,27 @@ export default function VoiceRecorder({
     setSeconds(0);
     setBusy(true);
 
+    // Dictation first, then the recorder.
+    //
+    // Both want the microphone, and on Android the one that asks second is the
+    // one that loses — with getUserMedia already holding it, Chrome's
+    // recogniser tends to come back with nothing at all. Starting the recogniser
+    // first is what makes a transcript show up on the phones this runs on.
+    if (canDictate()) {
+      dictation.current = startDictation({
+        lang,
+        onText: (text) => {
+          latestTranscript.current = text;
+          setTranscript(text);
+          setDictationState('working');
+        },
+        onError: (kind) => setDictationState(kind === 'nospeech' ? 'idle' : 'failed'),
+      });
+      setDictationState(dictation.current ? 'idle' : 'failed');
+    } else {
+      setDictationState('unsupported');
+    }
+
     try {
       recorder.current = await startRecording({
         onLevel: (level) =>
@@ -94,23 +118,11 @@ export default function VoiceRecorder({
       });
     } catch {
       // Denied, or no microphone. The written form is still right there.
+      dictation.current?.stop();
+      dictation.current = null;
       setBusy(false);
       setError(t('voice.micDenied'));
       return;
-    }
-
-    if (canDictate()) {
-      dictation.current = startDictation({
-        lang,
-        onText: (text) => {
-          latestTranscript.current = text;
-          setTranscript(text);
-        },
-        // Silent on purpose: dictation failing costs nothing, because the
-        // recording is the record. Saying "speech recognition failed" would
-        // only worry someone whose complaint is going through fine.
-        onError: () => undefined,
-      });
     }
 
     setBusy(false);
@@ -205,12 +217,22 @@ export default function VoiceRecorder({
         </p>
       )}
 
-      {/* Shown live so a Chrome user can see it is working — and never
-          presented as something to check, because the person this is built for
-          cannot check it. */}
+      {/* Shown live so the words appearing are visible proof it is working —
+          and never presented as something to check, because the person this is
+          built for cannot check it. */}
       {transcript && (
         <p className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-center text-[15px] leading-snug text-slate-700 shadow-card">
           {transcript}
+        </p>
+      )}
+
+      {/* Said quietly, and only while recording. The complaint is going through
+          on the audio either way, so this explains a blank space rather than
+          reporting a failure — but leaving it unexplained is what makes people
+          think the button is broken. */}
+      {recording && !transcript && dictationState !== 'idle' && (
+        <p className="mt-3 text-center text-xs leading-snug text-slate-400">
+          {t(dictationState === 'unsupported' ? 'voice.noTextHere' : 'voice.noTextNow')}
         </p>
       )}
 

@@ -529,6 +529,10 @@
     "recorded": "Recorded complaint",
     "spokenComplaint": "Complaint filed by voice — please listen to the recording.",
     "playMissing": "The recording could not be found.",
-    "playUnsupported": "This recording cannot play on this device."
+    "playUnsupported": "This recording cannot play on this device.",
+    "heard": "You said",
+    "noTextNow": "Not catching the words — that is fine, your voice is being recorded.",
+    "noTextHere": "This browser cannot turn speech into text — your voice still reaches them.",
+    "sendFailed": "The complaint could not be sent. Check your connection and try again."
   }
 }

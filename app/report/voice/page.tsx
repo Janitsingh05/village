@@ -126,7 +126,10 @@ export default function VoiceReportPage() {
       rememberMe({ name: '', phone });
       router.push(complaintHref(id) + '&new=1');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('report.failed'));
+      // The message from Firestore is developer-facing ("Missing or
+      // insufficient permissions"); the person holding the phone needs the one
+      // thing they can act on.
+      setError(t('voice.sendFailed'));
       setStep('phone');
     }
   }
@@ -180,7 +183,19 @@ export default function VoiceReportPage() {
         )}
 
         {step === 'category' && (
-          <div className="mt-8">
+          <div className="mt-6">
+            {/* What the recording became, shown once so it is visible that the
+                words were captured. Not editable here — this flow exists for
+                someone who cannot proofread it, and the audio is what the
+                Panchayat actually receives. */}
+            {transcript && (
+              <p className="mb-5 rounded-2xl bg-white px-4 py-3 text-center text-[15px] leading-snug text-slate-700 shadow-card">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  {t('voice.heard')}
+                </span>
+                {transcript}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               {CATEGORIES.map((cat) => {
                 const selected = category === cat.id;
