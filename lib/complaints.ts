@@ -4,7 +4,10 @@ import {
   getCountFromServer,
   limit as fsLimit,
   where,
+  startAfter,
   type QueryConstraint,
+  type QueryDocumentSnapshot,
+  type DocumentData,
   doc,
   getDoc,
   getDocs,
@@ -178,6 +181,15 @@ export async function getComplaintPhotos(
  */
 export const FEED_PAGE = 40;
 
+/**
+ * How long to wait for the server before treating a write as queued.
+ *
+ * Long enough that a working connection almost always settles inside it — so
+ * genuine errors still reach the user as errors — and short enough that someone
+ * with no signal is not left watching a spinner.
+ */
+const LOCAL_WRITE_HANDOFF_MS = 4000;
+
 export interface FeedOptions {
   villageId?: string;
   max?: number;
@@ -185,6 +197,8 @@ export interface FeedOptions {
   status?: ComplaintStatus;
   /** Only this reporter's complaints — what "my complaints" needs. */
   reporterUid?: string;
+  /** Complaints filed at or after this moment. Composes with `status`. */
+  since?: number;
 }
 
 /**
@@ -205,7 +219,7 @@ export interface FeedOptions {
  * runtime, in production.
  */
 export function subscribeToComplaints(
-  onChange: (rows: Complaint[]) => void,
+  onChange: (rows: Complaint[], cursor: QueryDocumentSnapshot<DocumentData> | null) => void,
   onError: (e: Error) => void,
   options: FeedOptions = {}
 ): () => void {
@@ -214,11 +228,17 @@ export function subscribeToComplaints(
 
   if (options.status) parts.push(where('status', '==', options.status));
   if (options.reporterUid) parts.push(where('reporterUid', '==', options.reporterUid));
+  if (options.since) parts.push(where('createdAt', '>=', new Date(options.since)));
   parts.push(orderBy('createdAt', 'desc'), fsLimit(options.max ?? FEED_PAGE));
 
   return onSnapshot(
     query(complaintsCol(villageId), ...parts),
-    (snap) => onChange(snap.docs.map((d) => fromDoc(d.id, d.data()))),
+    (snap) =>
+      onChange(
+        snap.docs.map((d) => fromDoc(d.id, d.data())),
+        // Null when the page came back short — there is nothing after it.
+        snap.docs.length === (options.max ?? FEED_PAGE) ? snap.docs[snap.docs.length - 1] : null
+      ),
     (e) => onError(e)
   );
 }
@@ -251,6 +271,29 @@ export async function countComplaints(
   };
 }
 
+/**
+ * One complaint, live, with whether it has reached the server yet.
+ *
+ * `hasPendingWrites` is the only honest way to tell a reporter the difference
+ * between "the Panchayat has this" and "your phone has this and will send it".
+ * A one-shot read cannot: from cache it looks identical either way.
+ */
+export function subscribeToComplaint(
+  id: string,
+  onChange: (state: { complaint: Complaint | null; pending: boolean }) => void,
+  villageId = activeVillageId()
+): () => void {
+  return onSnapshot(
+    doc(complaintsCol(villageId), id),
+    (snap) =>
+      onChange({
+        complaint: snap.exists() ? fromDoc(snap.id, snap.data()) : null,
+        pending: snap.metadata.hasPendingWrites,
+      }),
+    () => onChange({ complaint: null, pending: false })
+  );
+}
+
 export async function getComplaint(id: string, villageId = activeVillageId()): Promise<Complaint | null> {
   const snap = await getDoc(doc(complaintsCol(villageId), id));
   return snap.exists() ? fromDoc(snap.id, snap.data()) : null;
@@ -274,16 +317,17 @@ export async function createComplaint(
 
   // An identity before the write, not a login before the report. See
   // ensureAnonymous — this is invisible to the villager.
-  // Null when anonymous sign-in is switched off in the Firebase project, or
-  // when this is a first-ever visit with no network. Filing goes ahead either
-  // way: refusing here would break every complaint in a project that has not
-  // enabled the provider yet, and the rules are the thing that decides whether
-  // an unattributed write is acceptable — not this function.
+  // Fail here rather than attempt a write that cannot succeed.
   //
-  // The cost of a missing UID is narrow and recoverable: the complaint does not
-  // appear under "my complaints" on this device, and its owner cannot confirm
-  // the fix. The reference on the receipt still finds it.
-  const uid = (await ensureAnonymous()) ?? '';
+  // The previous comment claimed filing went ahead without a UID. The rules say
+  // otherwise — `isSignedIn() && reporterUid == request.auth.uid` on create, and
+  // ownsComplaint() on every photo, recording and contact write after it — so
+  // without an identity every one of those is denied and the reporter is shown a
+  // generic failure. One unchecked console toggle would have turned the whole
+  // reporting flow into a silent dead end.
+  const identity = await ensureAnonymous();
+  if (identity.uid === null) throw new Error('NO_IDENTITY:' + identity.reason);
+  const uid = identity.uid;
 
   // Compress everything up front: an unusable photo is caught before the
   // complaint is written, and the thumbnail must be in the first write because
@@ -303,6 +347,8 @@ export async function createComplaint(
 
   // The complaint document goes first, and everything else hangs off it.
   //
+  // Issued, not awaited — see the handoff below.
+  //
   // The recording used to be written before it, so that a failed audio write
   // meant no complaint at all — for a spoken complaint the audio is the
   // complaint. That ordering cannot survive the rules that now check ownership:
@@ -313,8 +359,9 @@ export async function createComplaint(
   // lands, the reporter sees the error and the player says the recording could
   // not be found, rather than the complaint vanishing. That is the better of
   // the two failures.
-  await setDoc(docRef, {
-    villageId,
+  const issued = (async () => {
+    await setDoc(docRef, {
+      villageId,
     // Stored, not only derived. The reference is the one thing a villager
     // writes on paper or reads out over a phone, and until now nothing could
     // look it up again — it was a one-way hash computed for display.
@@ -345,43 +392,71 @@ export async function createComplaint(
     resolutionNote: null,
     feedback: null,
     timeline: [{ status: 'pending', at: now }],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  if (input.voice) {
-    await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
-      data: input.voice.dataUrl,
-      mimeType: input.voice.mimeType,
-      seconds: input.voice.seconds,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
-  }
 
-  // The number the Panchayat will actually ring, out of public reach. A failure
-  // here costs a callback, not the report.
-  const phone = input.reporterPhone.replace(/\D/g, '').slice(-10);
-  if (phone) {
-    await setDoc(contactDoc(villageId, docRef.id), {
-      phone,
-      createdAt: serverTimestamp(),
-    }).catch(() => {
-      // The masked number is on the complaint and the reporter can be reached
-      // through the app; losing this is a degraded complaint, not a lost one.
-    });
-  }
+    if (input.voice) {
+      await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
+        data: input.voice.dataUrl,
+        mimeType: input.voice.mimeType,
+        seconds: input.voice.seconds,
+        createdAt: serverTimestamp(),
+      });
+    }
 
-  await Promise.all(
-    fulls.map((data, i) =>
-      setDoc(mediaDoc(villageId, docRef.id, 'photo-' + i), {
-        data,
+    // The number the Panchayat will actually ring, out of public reach. A
+    // failure here costs a callback, not the report.
+    const phone = input.reporterPhone.replace(/\D/g, '').slice(-10);
+    if (phone) {
+      await setDoc(contactDoc(villageId, docRef.id), {
+        phone,
         createdAt: serverTimestamp(),
       }).catch(() => {
-        // Best-effort, unlike the recording: the feed still shows the
-        // thumbnail, so only the full view loses one image.
-      })
-    )
-  );
+        // The masked number is on the complaint and the reporter can be reached
+        // through the app; losing this is a degraded complaint, not a lost one.
+      });
+    }
+
+    await Promise.all(
+      fulls.map((data, i) =>
+        setDoc(mediaDoc(villageId, docRef.id, 'photo-' + i), {
+          data,
+          createdAt: serverTimestamp(),
+        }).catch(() => {
+          // Best-effort, unlike the recording: the feed still shows the
+          // thumbnail, so only the full view loses one image.
+        })
+      )
+    );
+  })();
+
+  // Hand back the reference on the local write, not the server's reply.
+  //
+  // A Firestore write promise resolves on backend acknowledgement. Offline, the
+  // document lands in IndexedDB immediately and that promise simply never
+  // settles — so awaiting it left the button spinning forever, no error, no
+  // receipt, on exactly the connection this app was built for. The natural
+  // response is to press submit again.
+  //
+  // Racing a short timer keeps both behaviours: online, the write settles well
+  // inside it and a real permission error still surfaces as an error; offline,
+  // the timer wins and the reporter gets their reference with the receipt
+  // saying it will send when the network returns.
+  let queued = false;
+  await Promise.race([
+    issued,
+    new Promise<void>((resolve) =>
+      setTimeout(() => {
+        queued = true;
+        resolve();
+      }, LOCAL_WRITE_HANDOFF_MS)
+    ),
+  ]);
+
+  // Still in flight. Keep it syncing, and swallow a later rejection so it does
+  // not surface as an unhandled promise long after the user has moved on.
+  if (queued) issued.catch(() => undefined);
 
   return docRef.id;
 }
@@ -476,6 +551,43 @@ export async function deleteAllComplaints(
  * device, so a cleared browser or a new phone loses the list — and the person
  * most likely to lose it is the one least able to file again from memory.
  */
+/**
+ * The next page after a live first page.
+ *
+ * A limit is a ceiling, not a fix: at one more complaint than the window, the
+ * bug it replaced comes back in the same shape — the oldest rows simply stop
+ * being reachable. The first page stays a live listener so new complaints
+ * appear as they arrive; pages after it are one-shot reads, because nobody
+ * needs realtime updates on rows they scrolled back to find.
+ *
+ * The cursor is the last document of the previous page, which is why this takes
+ * a snapshot rather than a Complaint.
+ */
+export interface ComplaintPage {
+  rows: Complaint[];
+  /** Pass back as `after` for the next page. Null when the feed is exhausted. */
+  cursor: QueryDocumentSnapshot<DocumentData> | null;
+}
+
+export async function loadMoreComplaints(
+  after: QueryDocumentSnapshot<DocumentData>,
+  options: FeedOptions = {}
+): Promise<ComplaintPage> {
+  const villageId = options.villageId ?? activeVillageId();
+  const parts: QueryConstraint[] = [];
+
+  if (options.status) parts.push(where('status', '==', options.status));
+  if (options.reporterUid) parts.push(where('reporterUid', '==', options.reporterUid));
+  if (options.since) parts.push(where('createdAt', '>=', new Date(options.since)));
+  parts.push(orderBy('createdAt', 'desc'), startAfter(after), fsLimit(options.max ?? FEED_PAGE));
+
+  const snap = await getDocs(query(complaintsCol(villageId), ...parts));
+  return {
+    rows: snap.docs.map((d) => fromDoc(d.id, d.data())),
+    cursor: snap.docs.length === (options.max ?? FEED_PAGE) ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
 export async function findComplaintByRef(
   ref: string,
   villageId = activeVillageId()

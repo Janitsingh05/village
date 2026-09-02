@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import ComplaintCard from '@/components/ComplaintCard';
-import { subscribeToComplaints } from '@/lib/complaints';
+import { subscribeToComplaints, loadMoreComplaints, FEED_PAGE } from '@/lib/complaints';
+import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { STATUS_ORDER } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import type { Complaint, ComplaintStatus } from '@/lib/types';
@@ -17,21 +18,47 @@ export default function AllComplaintsPage() {
   const [rows, setRows] = useState<Complaint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
+  // Pages after the live first one, kept separate so an arriving complaint on
+  // the listener cannot duplicate a row already scrolled past.
+  const [more, setMore] = useState<Complaint[]>([]);
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // The status filter belongs in the query. Filtering a fixed window in
+  // JavaScript meant "pending" only ever showed pending complaints that
+  // happened to fall inside the newest forty.
+  const feed = useMemo(
+    () => ({ status: filter === 'all' ? undefined : filter, max: FEED_PAGE }),
+    [filter]
+  );
 
   useEffect(() => {
+    setCursor(null);
+    setMore([]);
     return subscribeToComplaints(
-      (list) => {
+      (list, next) => {
         setRows(list);
+        setCursor(next);
         setError(null);
       },
-      (e) => setError(e.message)
+      (e) => setError(e.message),
+      feed
     );
-  }, []);
+  }, [feed]);
 
-  const visible = useMemo(
-    () => (rows || []).filter((c) => filter === 'all' || c.status === filter),
-    [rows, filter]
-  );
+  async function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadMoreComplaints(cursor, feed);
+      setMore((prev) => [...prev, ...page.rows]);
+      setCursor(page.cursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const visible = useMemo(() => [...(rows || []), ...more], [rows, more]);
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-24">
@@ -77,6 +104,15 @@ export default function AllComplaintsPage() {
             {visible.map((c) => (
               <ComplaintCard key={c.id} complaint={c} />
             ))}
+            {cursor && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition active:scale-[0.99] disabled:opacity-50"
+              >
+                {loadingMore ? t('common.loading') : t('common.loadMore')}
+              </button>
+            )}
           </div>
         )}
       </main>

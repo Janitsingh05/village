@@ -14,6 +14,7 @@ import { useI18n } from '@/lib/i18n';
 import { reverseGeocode, type Place } from '@/lib/geocode';
 import { rememberMe } from '@/lib/me';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft';
+import { readReportError, REPORT_ERROR_KEY } from '@/lib/report-errors';
 import { complaintHref } from '@/lib/route-id';
 import type { CategoryId } from '@/lib/types';
 
@@ -120,7 +121,7 @@ export default function ReportPage() {
       clearDraft();
       router.push(complaintHref(id) + '&new=1');
     } catch (err) {
-      setError(t('report.failed'));
+      setError(t(REPORT_ERROR_KEY[readReportError(err)]));
       setSubmitting(false);
     }
   }

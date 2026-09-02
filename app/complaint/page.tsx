@@ -8,7 +8,12 @@ import CategoryIcon from '@/components/CategoryIcon';
 import StatusBadge, { STATUS_DOT } from '@/components/StatusBadge';
 import Icon from '@/components/Icon';
 import VoicePlayer from '@/components/VoicePlayer';
-import { getComplaint, getComplaintPhotos, getFullPhoto, submitFeedback } from '@/lib/complaints';
+import {
+  subscribeToComplaint,
+  getComplaintPhotos,
+  getFullPhoto,
+  submitFeedback,
+} from '@/lib/complaints';
 import { categoryOf, STATUS_TIMELINE, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { complaintShareUrl, useRouteId } from '@/lib/route-id';
@@ -27,6 +32,10 @@ export default function ComplaintDetailPage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [fullProof, setFullProof] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Whether this complaint is still sitting in the phone's own queue. Only a
+  // live snapshot can tell — a one-shot read from cache looks identical
+  // whether the server has it or not.
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     setJustCreated(new URLSearchParams(window.location.search).get('new') === '1');
@@ -38,13 +47,13 @@ export default function ComplaintDetailPage() {
       setComplaint(null);
       return;
     }
-    let alive = true;
-    getComplaint(id)
-      .then((c) => alive && setComplaint(c))
-      .catch(() => alive && setComplaint(null));
-    return () => {
-      alive = false;
-    };
+    // Live rather than one-shot, so the receipt can flip from "will send" to
+    // "delivered" the moment the network comes back, without the reporter
+    // reloading anything.
+    return subscribeToComplaint(id, (state) => {
+      setComplaint(state.complaint);
+      setPending(state.pending);
+    });
   }, [id]);
 
   useEffect(() => {
@@ -156,11 +165,26 @@ export default function ComplaintDetailPage() {
           {t('detail.refLabel')}: <span className="font-mono">{complaint.ref}</span>
         </p>
 
-        {justCreated && (
-          <div className="rounded-2xl bg-brand-50 p-4 text-center">
-            <p className="font-bold text-brand-800">{t('detail.successTitle')}</p>
-            <p className="mt-0.5 text-sm text-brand-700">{t('detail.successBody')}</p>
+        {/* Two different pieces of news, and conflating them is what made the
+            old flow dishonest offline: the complaint is written either way, but
+            only one of these means the Panchayat can see it. */}
+        {pending ? (
+          <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 p-4">
+            <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0">
+              <p className="font-bold text-amber-900">{t('detail.queuedTitle')}</p>
+              <p className="mt-0.5 text-sm leading-snug text-amber-800">
+                {t('detail.queuedBody')}
+              </p>
+            </div>
           </div>
+        ) : (
+          justCreated && (
+            <div className="rounded-2xl bg-brand-50 p-4 text-center">
+              <p className="font-bold text-brand-800">{t('detail.successTitle')}</p>
+              <p className="mt-0.5 text-sm text-brand-700">{t('detail.successBody')}</p>
+            </div>
+          )
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">

@@ -8,6 +8,7 @@ import CategoryIcon from '@/components/CategoryIcon';
 import CameraCapture from '@/components/CameraCapture';
 import VoiceRecorder, { type VoiceResult } from '@/components/VoiceRecorder';
 import { createComplaint } from '@/lib/complaints';
+import { readReportError, REPORT_ERROR_KEY } from '@/lib/report-errors';
 import { CATEGORIES, isValidPhone } from '@/lib/config';
 import { guessCategory } from '@/lib/category-guess';
 import { canSpeak, speak, stopSpeaking, warmVoices } from '@/lib/speech';
@@ -129,7 +130,8 @@ export default function VoiceReportPage() {
       // The message from Firestore is developer-facing ("Missing or
       // insufficient permissions"); the person holding the phone needs the one
       // thing they can act on.
-      setError(t('voice.sendFailed'));
+      const kind = readReportError(err);
+      setError(kind === 'failed' ? t('voice.sendFailed') : t(REPORT_ERROR_KEY[kind]));
       setStep('phone');
     }
   }

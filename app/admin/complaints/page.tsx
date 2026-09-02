@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatusBadge from '@/components/StatusBadge';
 import Icon from '@/components/Icon';
-import { subscribeToComplaints } from '@/lib/complaints';
+import { subscribeToComplaints, loadMoreComplaints, FEED_PAGE } from '@/lib/complaints';
+import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { CATEGORIES, categoryOf, STATUS_ORDER, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { adminComplaintHref } from '@/lib/route-id';
@@ -20,6 +21,11 @@ export default function AdminComplaintsPage() {
   const [rows, setRows] = useState<Complaint[] | null>(null);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [category, setCategory] = useState<string>('all');
+  // Pages after the live first one. Kept apart so a new complaint arriving on
+  // the listener does not duplicate a row already scrolled past.
+  const [more, setMore] = useState<Complaint[]>([]);
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // The dashboard links here with a filter already chosen — "resolved", or a
   // category from the ranking. Read straight off the URL rather than through
@@ -41,31 +47,52 @@ export default function AdminComplaintsPage() {
     if (preset && CATEGORIES.some((c) => c.id === preset)) setCategory(preset);
   }, []);
 
-  useEffect(() => {
-    return subscribeToComplaints(
-      (list) => setRows(list),
-      () => setRows([]),
-      // The status filter goes into the query. Filtering the newest forty in
-      // JavaScript meant that past forty complaints, the oldest unresolved ones
-      // — the whole point of a work queue — silently stopped being reachable.
-      { status: status === 'all' ? undefined : status, max: 100 }
-    );
-  }, [status]);
+  // Status and date go into the query; category stays in JavaScript.
+  //
+  // Firestore allows one range filter per query, and `createdAt >=` is already
+  // it — so a third `where` on category would need its own composite index per
+  // combination and still could not range on time. Eight categories over an
+  // already-narrowed page is the one filter cheap enough to do here.
+  const since = useMemo(() => {
+    if (dateRange === '7d') return Date.now() - 7 * 86400000;
+    if (dateRange === '30d') return Date.now() - 30 * 86400000;
+    return undefined;
+  }, [dateRange]);
 
-  const visible = useMemo(() => {
-    const cutoff =
-      dateRange === '7d'
-        ? Date.now() - 7 * 86400000
-        : dateRange === '30d'
-          ? Date.now() - 30 * 86400000
-          : 0;
-    return (rows || []).filter(
-      (c) =>
-        (status === 'all' || c.status === status) &&
-        (category === 'all' || c.category === category) &&
-        c.createdAt >= cutoff
+  const feed = useMemo(
+    () => ({ status: status === 'all' ? undefined : status, since, max: FEED_PAGE }),
+    [status, since]
+  );
+
+  useEffect(() => {
+    setCursor(null);
+    setMore([]);
+    return subscribeToComplaints(
+      (list, next) => {
+        setRows(list);
+        setCursor(next);
+      },
+      () => setRows([]),
+      feed
     );
-  }, [rows, status, category, dateRange]);
+  }, [feed]);
+
+  async function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadMoreComplaints(cursor, feed);
+      setMore((prev) => [...prev, ...page.rows]);
+      setCursor(page.cursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const visible = useMemo(
+    () => [...(rows || []), ...more].filter((c) => category === 'all' || c.category === category),
+    [rows, more, category]
+  );
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-4">
@@ -177,6 +204,16 @@ export default function AdminComplaintsPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {cursor && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="mt-4 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition active:scale-[0.99] disabled:opacity-50"
+          >
+            {loadingMore ? t('common.loading') : t('common.loadMore')}
+          </button>
         )}
       </div>
     </main>

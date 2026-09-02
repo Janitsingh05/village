@@ -53,7 +53,50 @@ function getApp(): FirebaseApp {
   return app;
 }
 
+/**
+ * Proves to Firebase that a request came from this app and not a script.
+ *
+ * The last brake on write abuse, and the only one that can exist here. The
+ * rules can say who a caller is and what they own; they cannot count how often
+ * somebody writes, because that needs a server keeping score and this project
+ * has none by design. App Check answers a different question — is this the real
+ * app — and a loop with the public config cannot pass it.
+ *
+ * Gated behind the key so a developer with no key, and the /setup screen, keep
+ * working: with the variable unset this is a no-op and the project behaves as
+ * it does today.
+ */
+let appCheckStarted = false;
+
+function startAppCheck(): void {
+  if (appCheckStarted || typeof window === 'undefined') return;
+  const siteKey = process.env.NEXT_PUBLIC_APPCHECK_SITE_KEY;
+  if (!siteKey) return;
+
+  appCheckStarted = true;
+
+  // Imported dynamically, not statically. App Check is fire-and-forget — no
+  // caller waits on it — so there is no reason for its SDK to sit in the chunk
+  // that has to arrive before the first screen paints on a 3G phone. A static
+  // import cost 6 kB of first load for a module nothing reads.
+  void import('firebase/app-check')
+    .then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
+      initializeAppCheck(getApp(), {
+        provider: new ReCaptchaV3Provider(siteKey),
+        // Refreshed in the background so a villager on a slow line is never
+        // held up waiting for a token mid-submit.
+        isTokenAutoRefreshEnabled: true,
+      });
+    })
+    .catch(() => {
+      // A bad key must not take the app down with it. Firebase then rejects
+      // writes only once enforcement is switched on in the console, which is
+      // exactly the moment somebody is watching.
+    });
+}
+
 export function db(): Firestore {
+  startAppCheck();
   if (firestore) return firestore;
 
   // Offline persistence is the whole point on a rural connection: a complaint

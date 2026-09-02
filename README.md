@@ -363,6 +363,15 @@ npm run locales                                    # 3. check it is complete,
 missing, what is still identical to Hindi (an untranslated stub, almost always),
 and what no longer exists in the reference.
 
+Do not chase that percentage to 100. Some strings are genuinely the same in two
+languages and changing them for the sake of the number makes the translation
+worse. Currently intentional: `common.none` (an em dash), `detail.gps` (an
+acronym), `super.fieldNameEnPlaceholder` (an English example name), and in
+Marathi `मोबाइल`, `भाषा`, `राज्य`, `संपर्क नंबर` and `सार्वजनिक संपर्क कार्ड`,
+all of which Marathi and Hindi share. English's four are all correct as they
+stand — `admin.loginSub` is an English string that lives in the Hindi file on
+purpose.
+
 ### Dictionaries are fetched, not bundled
 
 `lib/i18n.tsx` used to import both JSON files, on the reasoning that two small

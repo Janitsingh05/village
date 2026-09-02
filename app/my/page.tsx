@@ -24,7 +24,7 @@ export default function MyComplaintsPage() {
     // read out of localStorage. The number is no longer on the complaint, and
     // masked numbers collide — two neighbours could both be 85xxxxxx07, and
     // "my complaints" would have shown one to the other.
-    void ensureAnonymous().then((id) => setUid(id ?? ''));
+    void ensureAnonymous().then((r) => setUid(r.uid ?? ''));
   }, []);
 
   // Queried by owner rather than fetched-then-filtered. The window is the whole

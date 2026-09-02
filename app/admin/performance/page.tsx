@@ -12,6 +12,9 @@ import type { CategoryId, Complaint } from '@/lib/types';
 
 const DAY = 86400000;
 
+/** How many recent complaints the averages on this screen are computed over. */
+const PERF_WINDOW = 300;
+
 /** When a complaint was actually marked resolved, not merely last touched. */
 function resolvedAt(c: Complaint): number | null {
   const e = [...c.timeline].reverse().find((t) => t.status === 'resolved');
@@ -22,11 +25,16 @@ export default function PerformancePage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Complaint[] | null>(null);
 
+  // A wider window than the feed, because an average over forty rows is noise.
+  // Still a window: a mean needs the documents themselves, so these figures
+  // describe recent complaints and the heading says so rather than presenting
+  // them as the village's whole history.
   useEffect(
     () =>
       subscribeToComplaints(
         (list) => setRows(list),
-        () => setRows([])
+        () => setRows([]),
+        { max: PERF_WINDOW }
       ),
     []
   );
@@ -78,7 +86,10 @@ export default function PerformancePage() {
       </Link>
 
       <h1 className="text-lg font-bold text-slate-900">{t('perf.title')}</h1>
-      <p className="mb-4 text-sm text-slate-500">{t('perf.subtitle')}</p>
+      <p className="text-sm text-slate-500">{t('perf.subtitle')}</p>
+      {/* Named, not implied. A windowed average presented as a village total is
+          the kind of number people quote in a meeting. */}
+      <p className="mb-4 text-xs text-slate-500">{t('perf.window', { n: PERF_WINDOW })}</p>
 
       <section className="rounded-3xl bg-white p-5 text-center shadow-card">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-blue-50 text-blue-500">

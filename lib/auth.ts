@@ -113,19 +113,35 @@ export function authErrorKind(
  * Never displaces a real session. An admin browsing the public feed keeps their
  * own account; only a browser with no user at all gets one of these.
  *
- * Returns null when anonymous sign-in is disabled in the Firebase project, so
- * callers can say something honest rather than throwing a Firebase code at a
- * villager.
+ * Returns the reason it failed rather than a bare null, because the two causes
+ * need opposite responses. A disabled provider is a deployment mistake that no
+ * amount of retrying fixes and that nobody but an admin can clear; no network on
+ * a first-ever visit clears itself the moment a bar of signal appears, and the
+ * draft is already saved. Telling a villager "try again" for the first one
+ * wastes their afternoon.
  */
-export async function ensureAnonymous(): Promise<string | null> {
+export type IdentityFailure = 'disabled' | 'offline' | 'failed';
+
+export async function ensureAnonymous(): Promise<
+  { uid: string } | { uid: null; reason: IdentityFailure }
+> {
   const existing = auth().currentUser;
-  if (existing) return existing.uid;
+  if (existing) return { uid: existing.uid };
 
   try {
     const cred = await signInAnonymously(auth());
-    return cred.user.uid;
-  } catch {
-    return null;
+    return { uid: cred.user.uid };
+  } catch (e) {
+    const code = (e as { code?: string })?.code || '';
+    return {
+      uid: null,
+      reason:
+        code === 'auth/operation-not-allowed' || code === 'auth/admin-restricted-operation'
+          ? 'disabled'
+          : code === 'auth/network-request-failed'
+            ? 'offline'
+            : 'failed',
+    };
   }
 }
 
