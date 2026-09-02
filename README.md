@@ -193,7 +193,13 @@ separately:
 
 ```bash
 npx firebase deploy --only firestore:rules
+npx firebase deploy --only firestore:indexes
 ```
+
+Indexes matter as much as rules and fail more confusingly. A query combining
+`where` with `orderBy` needs a composite index, and Firestore does not complain
+until that query runs — in production, in a browser console nobody is reading.
+`/my` and the admin work queue both do this now.
 
 Forget it and the app looks broken in ways that point everywhere but here — a
 spoken complaint that will not send, an admin application refused, a resident

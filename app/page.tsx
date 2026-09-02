@@ -32,8 +32,7 @@ export default function HomePage() {
         setError(null);
       },
       (e) => setError(e.message),
-      undefined,
-      20
+      { max: 20 }
     );
   }, []);
 

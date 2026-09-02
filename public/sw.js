@@ -8,7 +8,7 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v4';
+const VERSION = 'v5';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
@@ -58,10 +58,21 @@ function isBuildAsset(url) {
   return (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
-    url.pathname.startsWith('/locales/') ||
     url.pathname === '/logo.png' ||
     url.pathname === '/logo-mark.png'
   );
+}
+
+/**
+ * Translations, unlike build assets, have no hash in their filename.
+ *
+ * Cache-first froze them: once a phone had hi.json, fixing a Hindi typo changed
+ * nothing until VERSION here was bumped, and nothing in the repo makes anyone
+ * remember to do that. Serve the cached copy immediately, fetch a fresh one in
+ * the background, and the next open has the correction.
+ */
+function isLocale(url) {
+  return url.pathname.startsWith('/locales/');
 }
 
 self.addEventListener('fetch', (event) => {
@@ -71,6 +82,24 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   // Same-origin only: Firebase, Google APIs and anything else go straight out.
   if (url.origin !== self.location.origin) return;
+
+  if (isLocale(url)) {
+    event.respondWith(
+      caches.match(request).then((hit) => {
+        const fresh = fetch(request)
+          .then((res) => {
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
+            }
+            return res;
+          })
+          .catch(() => hit);
+        return hit || fresh;
+      })
+    );
+    return;
+  }
 
   if (isBuildAsset(url)) {
     event.respondWith(

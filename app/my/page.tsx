@@ -27,12 +27,18 @@ export default function MyComplaintsPage() {
     void ensureAnonymous().then((id) => setUid(id ?? ''));
   }, []);
 
+  // Queried by owner rather than fetched-then-filtered. The window is the whole
+  // village's newest forty, so filtering after the fact meant a citizen's
+  // complaint disappeared from their own list as soon as forty newer ones
+  // existed — and the empty state told them they had never filed anything.
   useEffect(() => {
+    if (!uid) return;
     return subscribeToComplaints(
       (list) => setRows(list),
-      () => setRows([])
+      () => setRows([]),
+      { reporterUid: uid, max: 50 }
     );
-  }, []);
+  }, [uid]);
 
   // An empty phone means this device has never filed anything. Say so directly
   // rather than relying on the filter happening to match nothing.

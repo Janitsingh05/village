@@ -124,15 +124,33 @@ export const STATUS_TIMELINE: ComplaintStatus[] = [
  * Public reference for a complaint: GC-YYMMDD-NNNN, where the tail is derived
  * from the document id so it is stable without needing a counter document.
  */
+/** Minutes to add to UTC for IST. Fixed, because India has no daylight saving. */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * The reference a villager writes on paper and reads out over a phone.
+ *
+ * Two things had to change. The date stamp was built from the device's own
+ * timezone, so the same complaint produced a different reference depending on
+ * who was looking and when — near midnight, or on a phone with the wrong zone,
+ * the printed reference no longer matched the stored one, and the lookup that
+ * is a citizen's only recovery path found nothing. It is IST now, everywhere.
+ *
+ * And four digits was too narrow. Complaints filed on one day share the stamp,
+ * so the tail is a birthday problem over 10,000 buckets: about a 7% chance of a
+ * collision at 40 complaints in a day, 39% at 100. Since findComplaintByRef
+ * takes the first match, a collision hands somebody a stranger's complaint.
+ * Six digits puts 100 same-day complaints at roughly 0.5%.
+ */
 export function complaintRef(id: string, createdAt: number): string {
-  const d = new Date(createdAt);
+  const d = new Date(createdAt + IST_OFFSET_MS);
   const stamp =
-    String(d.getFullYear() % 100).padStart(2, '0') +
-    String(d.getMonth() + 1).padStart(2, '0') +
-    String(d.getDate()).padStart(2, '0');
+    String(d.getUTCFullYear() % 100).padStart(2, '0') +
+    String(d.getUTCMonth() + 1).padStart(2, '0') +
+    String(d.getUTCDate()).padStart(2, '0');
   let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 10000;
-  return 'GC-' + stamp + '-' + String(hash).padStart(4, '0');
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 1000000;
+  return 'GC-' + stamp + '-' + String(hash).padStart(6, '0');
 }
 
 /** A villager can show the problem from a few angles without bloating the feed. */

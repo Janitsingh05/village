@@ -21,6 +21,18 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/villages/$(villageId)).data.adminUserIds;
     }
 
+    // Whether the caller is the device that filed this complaint.
+    //
+    // Costs one document read per write, which is the price of not letting
+    // strangers attach files and phone numbers to other people's reports. The
+    // complaint document is written before anything hangs off it, so this
+    // resolves — see createComplaint's ordering comment.
+    function ownsComplaint(villageId, complaintId) {
+      return exists(/databases/$(database)/documents/villages/$(villageId)/complaints/$(complaintId))
+        && get(/databases/$(database)/documents/villages/$(villageId)/complaints/$(complaintId))
+             .data.reporterUid == request.auth.uid;
+    }
+
     // True when a write leaves every field except the listed ones untouched.
     function onlyChanged(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
@@ -85,11 +97,23 @@ service cloud.firestore {
           && request.resource.data.category is string
           && request.resource.data.description is string
           && request.resource.data.description.size() > 0
-          // Matches the form's own cap. They disagreed before, so an API write
-          // could store a 1000-character description into a card built for 200.
-          && request.resource.data.description.size() <= 300
+          // The form's own cap, DESC_MAX in app/report/page.tsx. The comment
+          // here used to claim they matched while the numbers were 200 and 300.
+          && request.resource.data.description.size() <= 200
           && request.resource.data.reportedBy.phoneMasked is string
           && request.resource.data.reportedBy.phoneMasked.size() <= 14
+          // Both objects are closed. description and location.address were
+          // capped while the field beside them took anything up to the 1 MiB
+          // document limit — including a real, unmasked phone number written
+          // straight onto a world-readable document under any key at all.
+          && request.resource.data.reportedBy.keys().hasOnly(['name', 'phoneMasked'])
+          && request.resource.data.reportedBy.name.size() <= 60
+          && request.resource.data.keys().hasOnly([
+               'villageId', 'ref', 'category', 'description', 'photoUrl', 'photoCount',
+               'voiceNote', 'location', 'status', 'reporterUid', 'reportedBy',
+               'resolutionPhotoUrl', 'resolutionNote', 'feedback', 'timeline',
+               'createdAt', 'updatedAt'
+             ])
           && request.resource.data.resolutionPhotoUrl == null
           // Inline thumbnail only; the full image is its own document.
           && (request.resource.data.photoUrl == null
@@ -109,14 +133,22 @@ service cloud.firestore {
           && (!('address' in request.resource.data.location.keys())
               || request.resource.data.location.address.size() <= 200);
 
-        // Only the village's admins move a complaint along, and they may never
-        // rewrite what the citizen reported.
+        // Only the village's admins move a complaint along, and only these five
+        // fields move.
+        //
+        // The old version pinned four fields the admin must not change and left
+        // everything else open, which is the wrong way round: it permitted the
+        // office being complained about to set the citizen's own verdict to
+        // "confirmed fixed", blank photoUrl to strip the evidence out of the
+        // public feed without deleting the complaint, rewrite the timeline that
+        // records how long a repair took, and move createdAt to improve its own
+        // average. An allow-list cannot drift like that — a new field is
+        // forbidden until someone names it here.
         allow update: if isVillageAdmin(villageId)
-          && request.resource.data.villageId == resource.data.villageId
-          && request.resource.data.category == resource.data.category
-          && request.resource.data.description == resource.data.description
-          && request.resource.data.reportedBy == resource.data.reportedBy
-          && request.resource.data.status in ['pending', 'in_progress', 'resolved', 'closed'];
+          && onlyChanged(['status', 'updatedAt', 'timeline', 'resolutionNote', 'resolutionPhotoUrl'])
+          && request.resource.data.status in ['pending', 'in_progress', 'resolved', 'closed']
+          && (request.resource.data.resolutionPhotoUrl == null
+              || request.resource.data.resolutionPhotoUrl.size() < 60000);
 
         // The reporter confirms the fix, or says it is still broken.
         //
@@ -147,7 +179,13 @@ service cloud.firestore {
         // who need to ring back can read it and nobody else can.
         match /private/contact {
           allow read: if isVillageAdmin(villageId) || isSuperAdmin();
+          // Only the reporter, and only for their own complaint. Complaint ids
+          // are public and a complaint filed without a number has no contact
+          // document, so without this anyone could plant a valid-looking number
+          // on somebody else's report — and `update: if false` means the
+          // Panchayat would ring that stranger forever.
           allow create: if isSignedIn()
+            && ownsComplaint(villageId, complaintId)
             && request.resource.data.phone is string
             && request.resource.data.phone.matches('[6-9][0-9]{9}');
           allow update: if false;
@@ -163,10 +201,18 @@ service cloud.firestore {
           // complaint; 'proof' is the admin's evidence and only they may write
           // it. A spoken complaint is public exactly like a written one — the
           // whole point is that the village can see what was reported.
+          // isSignedIn() alone was satisfied by the anonymous account every
+          // visitor gets, so this path was open in practice: any caller could
+          // write unlimited 900 KB documents under any complaint id, existing
+          // or invented. Ownership is the check that was missing.
           allow create: if isSignedIn()
             && request.resource.data.data is string
             && request.resource.data.data.size() < 900000
-            && (kind.matches('photo-[0-2]') || kind == 'voice' || isVillageAdmin(villageId));
+            && (
+              isVillageAdmin(villageId)
+              || ((kind.matches('^photo-[0-2]$') || kind == 'voice')
+                  && ownsComplaint(villageId, complaintId))
+            );
           allow update: if isVillageAdmin(villageId);
           // Deleted alongside the complaint they belong to; Firestore will not
           // remove a subcollection with its parent, so these have to go first
@@ -237,7 +283,15 @@ service cloud.firestore {
       // approval must rest on the images that were actually reviewed.
       match /media/{kind} {
         allow read: if isSuperAdmin();
-        allow create: if kind in ['id-proof', 'post-proof']
+        // Missed when the other create rules were tightened, and it was the
+        // worst one to miss: no sign-in, no ownership, and both the request id
+        // and the kind chosen by the caller — an open endpoint for unlimited
+        // 900 KB documents. The application is written before its media, so the
+        // parent is there to check against.
+        allow create: if isSignedIn()
+          && kind in ['id-proof', 'post-proof']
+          && exists(/databases/$(database)/documents/adminRequests/$(requestId))
+          && get(/databases/$(database)/documents/adminRequests/$(requestId)).data.uid == request.auth.uid
           && request.resource.data.data is string
           && request.resource.data.data.size() < 900000;
         allow update: if false;

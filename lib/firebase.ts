@@ -5,7 +5,6 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -66,9 +65,6 @@ export function db(): Firestore {
   return firestore;
 }
 
-export function storage(): FirebaseStorage {
-  return getStorage(getApp());
-}
 
 export function auth(): Auth {
   return getAuth(getApp());

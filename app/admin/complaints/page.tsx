@@ -44,9 +44,13 @@ export default function AdminComplaintsPage() {
   useEffect(() => {
     return subscribeToComplaints(
       (list) => setRows(list),
-      () => setRows([])
+      () => setRows([]),
+      // The status filter goes into the query. Filtering the newest forty in
+      // JavaScript meant that past forty complaints, the oldest unresolved ones
+      // — the whole point of a work queue — silently stopped being reachable.
+      { status: status === 'all' ? undefined : status, max: 100 }
     );
-  }, []);
+  }, [status]);
 
   const visible = useMemo(() => {
     const cutoff =

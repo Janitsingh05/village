@@ -10,7 +10,8 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 interface Picked {
   file: File;
-  thumb: string;
+  /** Null when the compressor overshot the inline cap; the file is still fine. */
+  thumb: string | null;
   note: string;
 }
 
@@ -106,11 +107,24 @@ export default function PhotoUpload({
           {picked.map((p, i) => (
             <li key={i} className="relative overflow-hidden rounded-2xl border-2 border-slate-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.thumb}
-                alt={t('photo.selectedAlt')}
-                className={'w-full object-cover ' + (max > 1 ? 'h-24' : 'max-h-64')}
-              />
+              {p.thumb ? (
+                <img
+                  src={p.thumb}
+                  alt={t('photo.selectedAlt')}
+                  className={'w-full object-cover ' + (max > 1 ? 'h-24' : 'max-h-64')}
+                />
+              ) : (
+                // Rare, and not an error: the photo is attached, it just could
+                // not be shrunk small enough to preview inline.
+                <div
+                  className={
+                    'grid w-full place-items-center bg-slate-100 text-xs text-slate-500 ' +
+                    (max > 1 ? 'h-24' : 'h-32')
+                  }
+                >
+                  {t('photo.selectedAlt')}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => removeAt(i)}

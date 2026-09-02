@@ -4,6 +4,7 @@ import {
   getCountFromServer,
   limit as fsLimit,
   where,
+  type QueryConstraint,
   doc,
   getDoc,
   getDocs,
@@ -22,7 +23,7 @@ import { activeVillageId } from './tenant';
 import { preparePhoto } from './imageCompress';
 import { ensureAnonymous, currentUid } from './auth';
 import { maskPhone } from './format';
-import type { Complaint, ComplaintStatus, NewComplaintInput } from './types';
+import type { Complaint, ComplaintStatus, NewComplaintInput, StatusEvent } from './types';
 
 // Every path here is scoped to villages/{villageId} so the data model is
 // already multi-tenant even though Phase 1 pins a single village.
@@ -41,7 +42,12 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
   const createdAt = toMillis(data.createdAt);
   return {
     id,
-    ref: complaintRef(id, createdAt),
+    // The stored value wins. Recomputing it here was how a receipt could show
+    // one reference while the database held another: the stored one is stamped
+    // from the client clock at write time, this one from the server timestamp,
+    // and the lookup searches the stored field. Older rows have no `ref`, so
+    // they still fall back to the computation.
+    ref: typeof data.ref === 'string' && data.ref ? data.ref : complaintRef(id, createdAt),
     villageId: data.villageId ?? activeVillageId(),
     category: data.category,
     description: data.description ?? '',
@@ -61,8 +67,15 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
     resolutionPhotoUrl: data.resolutionPhotoUrl ?? null,
     resolutionNote: data.resolutionNote ?? null,
     feedback: data.feedback ?? null,
+    // Clamped on read. serverTimestamp() is not allowed inside arrayUnion, so
+    // these are stamped by the admin's own device — and one phone with the wrong
+    // date writes a bogus entry into a public record and skews the village's
+    // average resolution time. Anything before the complaint existed or more
+    // than a day in the future is a clock, not a fact.
     timeline: Array.isArray(data.timeline)
-      ? data.timeline.map((t: any) => ({ ...t, at: toMillis(t.at) }))
+      ? data.timeline
+          .map((t: any) => ({ ...t, at: toMillis(t.at) }))
+          .filter((t: StatusEvent) => t.at >= createdAt - 60_000 && t.at <= Date.now() + 86_400_000)
       : [],
     createdAt,
     updatedAt: toMillis(data.updatedAt),
@@ -113,7 +126,7 @@ async function storePhoto(
   complaintId: string,
   file: File,
   kind: 'photo' | 'proof'
-): Promise<string> {
+): Promise<string | null> {
   const prepared = await preparePhoto(file);
   await setDoc(mediaDoc(villageId, complaintId, kind), {
     data: prepared.full,
@@ -151,11 +164,6 @@ export async function getComplaintPhotos(
   return results.filter((d): d is string => Boolean(d));
 }
 
-/** Newest-first list of complaints for the village. */
-export async function listComplaints(villageId = activeVillageId()): Promise<Complaint[]> {
-  const snap = await getDocs(query(complaintsCol(villageId), orderBy('createdAt', 'desc')));
-  return snap.docs.map((d) => fromDoc(d.id, d.data()));
-}
 
 /** Live list — used by the public feed and the admin dashboard. */
 /**
@@ -170,14 +178,46 @@ export async function listComplaints(villageId = activeVillageId()): Promise<Com
  */
 export const FEED_PAGE = 40;
 
+export interface FeedOptions {
+  villageId?: string;
+  max?: number;
+  /** Filter in the query, not after it. See the note below. */
+  status?: ComplaintStatus;
+  /** Only this reporter's complaints — what "my complaints" needs. */
+  reporterUid?: string;
+}
+
+/**
+ * A page of complaints, newest first.
+ *
+ * Filters belong in the query. Adding the limit fixed a real cost problem and
+ * created a correctness one in the same move: every screen took the 40 newest
+ * complaints and then filtered them in JavaScript, so an admin asking for
+ * "pending" saw only pending complaints that happened to fall inside the 40
+ * newest overall. As a village got busier the old unresolved ones — exactly the
+ * ones that need chasing — dropped out of the queue with no error and no way to
+ * reach them. "My complaints" had the same shape and was worse: once forty
+ * newer complaints existed anywhere in the village, a citizen's own report
+ * stopped appearing and the page told them they had never filed anything.
+ *
+ * Each filtered form needs a composite index; they are in
+ * firestore.indexes.json, and Firestore only complains about a missing one at
+ * runtime, in production.
+ */
 export function subscribeToComplaints(
   onChange: (rows: Complaint[]) => void,
   onError: (e: Error) => void,
-  villageId = activeVillageId(),
-  max = FEED_PAGE
+  options: FeedOptions = {}
 ): () => void {
+  const villageId = options.villageId ?? activeVillageId();
+  const parts: QueryConstraint[] = [];
+
+  if (options.status) parts.push(where('status', '==', options.status));
+  if (options.reporterUid) parts.push(where('reporterUid', '==', options.reporterUid));
+  parts.push(orderBy('createdAt', 'desc'), fsLimit(options.max ?? FEED_PAGE));
+
   return onSnapshot(
-    query(complaintsCol(villageId), orderBy('createdAt', 'desc'), fsLimit(max)),
+    query(complaintsCol(villageId), ...parts),
     (snap) => onChange(snap.docs.map((d) => fromDoc(d.id, d.data()))),
     (e) => onError(e)
   );
@@ -195,17 +235,19 @@ export function subscribeToComplaints(
  */
 export async function countComplaints(
   villageId = activeVillageId()
-): Promise<{ total: number; pending: number; resolved: number }> {
+): Promise<{ total: number; pending: number; resolved: number; inProgress: number }> {
   const col = complaintsCol(villageId);
-  const [total, pending, resolved] = await Promise.all([
+  const [total, pending, resolved, inProgress] = await Promise.all([
     getCountFromServer(col),
     getCountFromServer(query(col, where('status', '==', 'pending'))),
     getCountFromServer(query(col, where('status', '==', 'resolved'))),
+    getCountFromServer(query(col, where('status', '==', 'in_progress'))),
   ]);
   return {
     total: total.data().count,
     pending: pending.data().count,
     resolved: resolved.data().count,
+    inProgress: inProgress.data().count,
   };
 }
 
@@ -259,27 +301,18 @@ export async function createComplaint(
     }
   }
 
-  // The recording goes first, and its failure is fatal.
+  // The complaint document goes first, and everything else hangs off it.
   //
-  // It used to be written after the complaint and its error swallowed, which
-  // produced the worst possible outcome: a complaint claiming to have a voice
-  // note, a play button with nothing behind it, and a reporter who was told
-  // their spoken complaint went through. For a spoken complaint the audio *is*
-  // the complaint — so if it cannot be stored, nothing is created and the
-  // reporter is told to try again.
+  // The recording used to be written before it, so that a failed audio write
+  // meant no complaint at all — for a spoken complaint the audio is the
+  // complaint. That ordering cannot survive the rules that now check ownership:
+  // a media rule asking "did this caller file the parent complaint?" has
+  // nothing to read if the parent does not exist yet.
   //
-  // A denial here almost always means the Firestore rules on the project are
-  // older than this code: `kind == 'voice'` has to be allowed in
-  // firestore.rules, and pushing the app does not deploy those.
-  if (input.voice) {
-    await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
-      data: input.voice.dataUrl,
-      mimeType: input.voice.mimeType,
-      seconds: input.voice.seconds,
-      createdAt: serverTimestamp(),
-    });
-  }
-
+  // The trade is a narrow one. If the audio write fails after the complaint
+  // lands, the reporter sees the error and the player says the recording could
+  // not be found, rather than the complaint vanishing. That is the better of
+  // the two failures.
   await setDoc(docRef, {
     villageId,
     // Stored, not only derived. The reference is the one thing a villager
@@ -316,8 +349,17 @@ export async function createComplaint(
     updatedAt: serverTimestamp(),
   });
 
-  // The number the Panchayat will actually ring, out of public reach. Written
-  // after the complaint so a failure here costs a callback, not the report.
+  if (input.voice) {
+    await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
+      data: input.voice.dataUrl,
+      mimeType: input.voice.mimeType,
+      seconds: input.voice.seconds,
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  // The number the Panchayat will actually ring, out of public reach. A failure
+  // here costs a callback, not the report.
   const phone = input.reporterPhone.replace(/\D/g, '').slice(-10);
   if (phone) {
     await setDoc(contactDoc(villageId, docRef.id), {
@@ -410,12 +452,18 @@ export async function deleteAllComplaints(
   villageId = activeVillageId(),
   onProgress?: (done: number, total: number) => void
 ): Promise<number> {
-  const snap = await getDocs(complaintsCol(villageId));
+  // Paged, because the only thing wanted here is the ids and the web SDK has
+  // no select() — reading the collection in one go would pull every base64
+  // thumbnail down first, which for 500 complaints is the 18 MB this file
+  // spends the rest of its length avoiding.
   let done = 0;
-
-  for (const row of snap.docs) {
-    await deleteComplaint(row.id, villageId);
-    onProgress?.(++done, snap.size);
+  for (;;) {
+    const snap = await getDocs(query(complaintsCol(villageId), fsLimit(50)));
+    if (snap.empty) break;
+    for (const row of snap.docs) {
+      await deleteComplaint(row.id, villageId);
+      onProgress?.(++done, done + snap.size - 1);
+    }
   }
 
   return done;

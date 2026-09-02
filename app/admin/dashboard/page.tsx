@@ -6,7 +6,7 @@ import CategoryIcon from '@/components/CategoryIcon';
 import StatsCard from '@/components/StatsCard';
 import StatusDonut from '@/components/StatusDonut';
 import Icon from '@/components/Icon';
-import { subscribeToComplaints, computeStats } from '@/lib/complaints';
+import { subscribeToComplaints, computeStats, countComplaints } from '@/lib/complaints';
 import { categoryOf } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import type { CategoryId, Complaint } from '@/lib/types';
@@ -22,13 +22,28 @@ const CUTOFFS: Record<Period, number> = {
 export default function AdminDashboardPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Complaint[] | null>(null);
+  const [counts, setCounts] = useState<{ total: number } | null>(null);
   const [period, setPeriod] = useState<Period>('month');
 
   useEffect(() => {
     return subscribeToComplaints(
       (list) => setRows(list),
-      () => setRows([])
+      () => setRows([]),
+      { max: 100 }
     );
+  }, []);
+
+  // Counted on the server. The tile is labelled "everything ever" and was being
+  // computed from a forty-row window, so it stopped being true at the forty-first
+  // complaint and quietly stayed wrong.
+  useEffect(() => {
+    let alive = true;
+    countComplaints()
+      .then((c) => alive && setCounts(c))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const scoped = useMemo(() => {
@@ -38,11 +53,9 @@ export default function AdminDashboardPage() {
     return (rows || []).filter((c) => c.createdAt >= cutoff);
   }, [rows, period]);
 
-  // Two sets on purpose: "total" means everything ever, while the other tiles
-  // answer for the period the admin picked. Running the month-scoped figures
-  // over an already-period-filtered list double-counted the window and made
-  // "this week" drop complaints at the start of a month.
-  const allTime = useMemo(() => computeStats(rows || []), [rows]);
+  // Two sets on purpose: "total" means everything ever — and comes from the
+  // server count, since no client-side window can answer that — while the other
+  // tiles answer for the period the admin picked, over the loaded rows.
   const stats = useMemo(() => computeStats(scoped), [scoped]);
 
   const topCategories = useMemo(() => {
@@ -71,7 +84,7 @@ export default function AdminDashboardPage() {
         <StatsCard
           icon="doc"
           tone="amber"
-          value={String(allTime.total)}
+          value={counts ? String(counts.total) : '—'}
           label={t('admin.statTotal')}
           href="/admin/complaints"
         />

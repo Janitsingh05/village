@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     locale: 'hi_IN',
     title: 'GaonConnect · ' + VILLAGE.nameHi,
     description: 'गाँव की समस्या फ़ोटो के साथ दर्ज करें — सीधे पंचायत तक। स्थिति यहीं दिखेगी.',
-    images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'GaonConnect' }],
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'GaonConnect' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'GaonConnect · ' + VILLAGE.nameHi,
     description: 'गाँव की समस्या फ़ोटो के साथ दर्ज करें — सीधे पंचायत तक।',
-    images: ['/icons/icon-512.png'],
+    images: ['/og.png'],
   },
   alternates: { canonical: '/' },
   // Generated from assets/brand/logo.png by `npm run logo`. The tab favicon is
@@ -48,7 +48,9 @@ export const viewport: Viewport = {
   themeColor: '#15803d',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
+  // No maximumScale. It was 5, which is generous and still a cap — and a cap on
+  // pinch-zoom is a WCAG 1.4.4 failure with no upside, on an app whose users
+  // include people who need to zoom to read at all.
 };
 
 // No webfont on purpose: Android and iOS both ship a Devanagari face, and a
