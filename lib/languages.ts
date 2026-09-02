@@ -71,7 +71,7 @@ export const LANGUAGES: Record<Lang, LanguageInfo> = {
  * offered. Adding one here without adding the file leaves users staring at
  * untranslated keys, so the two go together.
  */
-export const TRANSLATED: Lang[] = ['hi', 'en'];
+export const TRANSLATED: Lang[] = ['hi', 'en', 'mr'];
 
 export function hasDictionary(code: Lang): boolean {
   return TRANSLATED.includes(code);

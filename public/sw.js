@@ -8,7 +8,7 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
@@ -17,8 +17,10 @@ const PRECACHE = [
   '/report/',
   '/announcements/',
   '/manifest.json',
-  // The active language is fetched now rather than bundled, so the fallback
-  // dictionary has to survive a dropped connection like any other shell asset.
+  // Hindi and English ship inside the bundle too; these copies are what a
+  // fetched language falls back to offline. Languages beyond them are cached
+  // on first use by the /locales/ rule below rather than precached, so adding
+  // one never grows the install.
   '/locales/hi.json',
   '/locales/en.json',
   '/logo.png',

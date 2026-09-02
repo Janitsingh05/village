@@ -277,12 +277,20 @@ English because that is what their official business runs on.
 
 ### A language is only offered once it is finished
 
-`TRANSLATED` in `lib/languages.ts` gates the picker, and today it holds Hindi
-and English. Everything else in the map is a slot, not a promise. A villager in
-Tamil Nadu is currently offered Hindi and English with an explicit note that
-**தமிழ் அभी तैयार नहीं है** — because half a translation is worse than none: a
-screen that starts in Tamil and finishes in Hindi reads as broken software, and
-this app asks people to trust it with a complaint about their own village.
+`TRANSLATED` in `lib/languages.ts` gates the picker, and today it holds Hindi,
+English and Marathi. Everything else in the map is a slot, not a promise. A
+villager in Tamil Nadu is currently offered Hindi and English with an explicit
+note that **தமிழ் अभी तैयार नहीं है** — because half a translation is worse than
+none: a screen that starts in Tamil and finishes in Hindi reads as broken
+software, and this app asks people to trust it with a complaint about their own
+village.
+
+Marathi was written against the Hindi reference and has every key, but it has
+not been read by a native speaker yet. `npm run locales` reports it at 94%: the
+remainder are words the two languages genuinely share (सरपंच, पंचायत, मोबाइल,
+बंद), which the script cannot tell apart from an untranslated stub. Someone who
+speaks Marathi should still read it before the pilot reaches Maharashtra —
+"सोडवली" and "नाकारली" are the kind of words that have to be right.
 
 Adding a language is three steps, and step two is not an engineering task:
 
@@ -303,10 +311,13 @@ and what no longer exists in the reference.
 `lib/i18n.tsx` used to import both JSON files, on the reasoning that two small
 dictionaries cost less than a round trip. That holds for two and stops holding
 at twelve — eleven inlined would put ~180 KB of text nobody reads into the first
-paint of a 3G page. Hindi still ships with the app, because `t()` has to answer
-synchronously from the first render and it is what every missing key falls
-through to; everything else is fetched from `public/locales/` and cached
-cache-first by the service worker.
+paint of a 3G page. Hindi and English both ship with the app —
+Hindi because `t()` has to answer synchronously from the first render and is
+what every missing key falls through to, English because switching to it has to
+feel instant on a connection that cannot afford a round trip. Marathi and
+everything after it is fetched from `public/locales/` and cached cache-first by
+the service worker. The line sits at two on purpose; adding each new language to
+the bundle is how the argument gets lost.
 
 ## How an admin is verified
 
