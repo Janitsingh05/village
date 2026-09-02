@@ -10,7 +10,6 @@ import { updateAdminProfile } from '@/lib/villages';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 import { preparePhoto } from '@/lib/imageCompress';
-import { maskPhone } from '@/lib/format';
 
 export default function AdminProfilePage() {
   const { lang, t } = useI18n();
@@ -80,9 +79,7 @@ export default function AdminProfilePage() {
           {current?.adminName || t('common.anon')}
         </p>
         {current?.adminRole && <p className="text-sm text-slate-500">{current.adminRole}</p>}
-        <p className="mt-1 font-mono text-xs text-slate-400">
-          {session?.phone ? maskPhone(session.phone) : ''}
-        </p>
+        <p className="mt-1 font-mono text-xs text-slate-400">{session?.email ?? ''}</p>
         <p className="mt-2 text-sm text-slate-600">{village.name(lang)}</p>
 
         {!editing && (

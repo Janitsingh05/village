@@ -25,6 +25,10 @@ import type { AdminRequest, AdminRequestStatus, VerificationMethod } from './typ
  * Filing one grants nothing. It is an application, and it has to carry evidence
  * — a photo ID and something showing the applicant holds the post — because the
  * alternative is a super admin approving a name they have no way to check.
+ *
+ * The account exists before the application does. Registering creates it, so an
+ * application carries the exact UID approval will grant, and there is never a
+ * grant sitting around waiting for the right person to turn up and claim it.
  */
 function col() {
   return collection(db(), 'adminRequests');
@@ -48,6 +52,8 @@ function fromDoc(id: string, data: Record<string, any>): AdminRequest {
     id,
     villageId: data.villageId ?? '',
     villageName: data.villageName ?? '',
+    uid: data.uid ?? '',
+    email: data.email ?? '',
     name: data.name ?? '',
     phone: data.phone ?? '',
     role: data.role ?? '',
@@ -64,21 +70,25 @@ function fromDoc(id: string, data: Record<string, any>): AdminRequest {
 }
 
 /**
- * The document id is derived from the village and the phone number.
+ * The document id is the village and the applicant's account.
  *
- * That makes a repeat request a write to an existing document, which the rules
- * refuse — so duplicates are impossible without the client first *reading* the
- * collection, and it must not be able to: these rows carry phone numbers and
- * photographed ID documents, and are readable by the super admin alone.
+ * That makes a repeat application a write to an existing document, which the
+ * rules refuse — so duplicates are impossible without the client first *reading*
+ * the collection, and it must not be able to: these rows carry email addresses
+ * and photographed ID documents, and are readable by the super admin alone.
  */
-function requestId(villageId: string, phone: string): string {
-  return villageId + '__' + phone;
+function requestId(villageId: string, uid: string): string {
+  return villageId + '__' + uid;
 }
 
 export async function createAdminRequest(input: {
   villageId: string;
   villageName: string;
+  /** The account that just registered, from `register()`. */
+  uid: string;
+  email: string;
   name: string;
+  /** Contact number for the public card. Optional; never an identity. */
   phone: string;
   role: string;
   /** Government photo ID — Aadhaar, voter card, driving licence. */
@@ -86,10 +96,10 @@ export async function createAdminRequest(input: {
   /** Evidence of the post: election certificate, or a letter on letterhead. */
   postProofFile: File;
 }): Promise<string> {
+  if (!input.uid) throw new Error('NOT_SIGNED_IN');
   const phone = input.phone.replace(/\D/g, '').slice(-10);
-  if (phone.length !== 10) throw new Error('BAD_PHONE');
 
-  const id = requestId(input.villageId, phone);
+  const id = requestId(input.villageId, input.uid);
 
   // Compress before the write so a request is never created without the proof
   // that justifies it — an unreadable photo should fail here, not leave a row
@@ -105,6 +115,8 @@ export async function createAdminRequest(input: {
       {
         villageId: input.villageId,
         villageName: input.villageName,
+        uid: input.uid,
+        email: input.email.trim().toLowerCase(),
         name: input.name.trim(),
         phone,
         role: input.role.trim(),
@@ -178,9 +190,9 @@ export interface Decision {
 }
 
 /**
- * Approving is what actually grants access: the number joins the village's
- * admin list along with the evidence behind it, and the app links their UID the
- * first time they sign in.
+ * Approving is what actually grants access: the applicant's account joins the
+ * village's admin list along with the evidence behind it, and takes effect on
+ * their next read — there is nothing left for them to claim.
  *
  * The village is written first. If that succeeds and stamping the request fails,
  * the worst case is an approved admin whose request still reads "pending" —
@@ -194,9 +206,11 @@ export async function decideAdminRequest(
 ): Promise<void> {
   if (decision === 'approved') {
     await addVillageAdmin(request.villageId, {
-      phone: request.phone,
+      uid: request.uid,
+      email: request.email,
       name: request.name,
       role: request.role,
+      phone: request.phone,
       verifiedVia: input.verifiedVia,
       verifiedNote: input.verifiedNote,
       verifiedBy: input.by,

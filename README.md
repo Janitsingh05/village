@@ -104,8 +104,7 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 
 | Route | What |
 | --- | --- |
-| `/admin/login` | Phone + OTP, with email/password as fallback |
-| `/admin/verify` | OTP entry with resend timer |
+| `/admin/login` | Email + password |
 | `/admin/dashboard` | Period filter, four stats, status donut, most-reported categories |
 | `/admin/complaints` | Filterable table (category / status / date) |
 | `/admin/complaint/[id]` | Status change, note (0/200), proof photo |
@@ -117,7 +116,7 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 
 | Route | What |
 | --- | --- |
-| `/super-admin/login` | Mobile/OTP or email tabs |
+| `/super-admin/login` | Email + password |
 | `/super-admin/villages` | Every onboarded village, flagged when an admin needs re-checking |
 | `/super-admin/villages/new` | Onboard a village + its first admin |
 | `/super-admin/village?id=` | One village: LGD code, its admins, re-check, revoke, add directly |
@@ -337,8 +336,8 @@ The hard question this app has to answer is not "can this person log in" but
 "is this person really the Sarpanch of that village". OTP settles the first one
 and says nothing about the second, so everything below exists to narrow the gap.
 
-**Nobody can grant themselves access.** Registering files an application; only a
-super admin's approval puts a number on a village. That was true before, but the
+**Nobody can grant themselves access.** Registering creates an account and files
+an application; only a super admin's approval puts that account on a village. That was true before, but the
 super admin used to see four fields the applicant had typed and an Approve
 button, which is not a check — it is a formality with a button.
 

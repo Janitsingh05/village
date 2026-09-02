@@ -11,12 +11,11 @@ import VerificationFields, {
 import {
   getVillage,
   listVillageAdmins,
-  addVillageAdmin,
   revokeVillageAdmin,
   renewVillageAdmin,
   setVillageLgdCode,
   termState,
-  unrecordedPhones,
+  unrecordedAccounts,
   type TermState,
 } from '@/lib/villages';
 import { deleteAllComplaints } from '@/lib/complaints';
@@ -141,15 +140,15 @@ export default function SuperVillagePage() {
           <ul className="space-y-3">
             {admins.map((a) => (
               <AdminCard
-                key={a.phone}
+                key={a.uid}
                 admin={a}
                 village={village}
                 busy={busy}
                 uid={uid}
-                onRevoke={() => run(() => revokeVillageAdmin(village.id, a.phone))}
+                onRevoke={() => run(() => revokeVillageAdmin(village.id, a.uid))}
                 onRenew={(v) =>
                   run(() =>
-                    renewVillageAdmin(village.id, a.phone, {
+                    renewVillageAdmin(village.id, a.uid, {
                       termEndsAt: v.termEndsAt,
                       verifiedVia: v.verifiedVia,
                       verifiedNote: v.verifiedNote,
@@ -167,19 +166,16 @@ export default function SuperVillagePage() {
             Surfaced rather than hidden — an admin nobody can account for is
             exactly what this screen is for. */}
         <UnrecordedAdmins
-          phones={unrecordedPhones(village, admins)}
+          accounts={unrecordedAccounts(village, admins)}
           busy={busy}
-          onRevoke={(p) => run(() => revokeVillageAdmin(village.id, p))}
+          onRevoke={(uid) => run(() => revokeVillageAdmin(village.id, uid))}
         />
       </section>
 
-      <AddAdminCard
-        village={village}
-        uid={uid}
-        busy={busy}
-        onAdd={(entry) => run(() => addVillageAdmin(village.id, entry))}
-      />
-
+      {/* Adding an admin straight from here is gone with phone sign-in. There
+          is nothing to grant access *to* until someone has registered — an
+          account has to exist before its UID can go on a village — so every
+          grant now runs through the applications queue, where the proof is. */}
       <ClearComplaints villageId={village.id} villageName={village.name} />
     </main>
   );
@@ -265,7 +261,7 @@ function AdminCard({
   const [confirming, setConfirming] = useState(false);
   const [v, setV] = useState<VerificationInput>(emptyVerification);
   const state = termState(admin.termEndsAt);
-  const isPrimary = admin.phone === village.adminPhone;
+  const isPrimary = Boolean(admin.name) && admin.name === village.adminName;
 
   return (
     <li className="rounded-3xl bg-white p-4 shadow-card">
@@ -276,7 +272,10 @@ function AdminCard({
             {admin.role || t('common.none')}
             {isPrimary ? ' · ' + t('super.primaryAdmin') : ''}
           </p>
-          <p className="mt-1 font-mono text-xs text-slate-500">{admin.phone}</p>
+          <p className="mt-1 truncate font-mono text-xs text-slate-500">{admin.email}</p>
+          {admin.phone && (
+            <p className="truncate font-mono text-[11px] text-slate-400">{admin.phone}</p>
+          )}
         </div>
         <span className={'shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ' + TERM_CHIP[state]}>
           {t('verify.state_' + state)}
@@ -322,7 +321,7 @@ function AdminCard({
       ) : confirming ? (
         <div className="mt-3 rounded-2xl bg-red-50 p-3">
           <p className="text-[13px] leading-snug text-red-800">
-            {t('super.revokeConfirm', { name: admin.name || admin.phone })}
+            {t('super.revokeConfirm', { name: admin.name || admin.email })}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -367,24 +366,24 @@ function AdminCard({
 }
 
 function UnrecordedAdmins({
-  phones,
+  accounts,
   busy,
   onRevoke,
 }: {
-  phones: string[];
+  accounts: string[];
   busy: boolean;
-  onRevoke: (phone: string) => void;
+  onRevoke: (uid: string) => void;
 }) {
   const { t } = useI18n();
 
-  if (phones.length === 0) return null;
+  if (accounts.length === 0) return null;
 
   return (
     <div className="mt-3 rounded-3xl bg-amber-50 p-4">
       <p className="text-sm font-bold text-amber-900">{t('super.unrecorded')}</p>
       <p className="mt-1 text-[13px] leading-snug text-amber-800">{t('super.unrecordedSub')}</p>
       <ul className="mt-3 space-y-2">
-        {phones.map((p) => (
+        {accounts.map((p) => (
           <li key={p} className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5">
             <span className="min-w-0 flex-1 truncate font-mono text-sm text-slate-700">{p}</span>
             <button
@@ -503,145 +502,6 @@ function ClearComplaints({ villageId, villageName }: { villageId: string; villag
           </button>
         )
       )}
-    </section>
-  );
-}
-
-/* ------------------------------ the invite path ----------------------------- */
-
-/**
- * Granting access without a request at all.
- *
- * This is the safest path in the app: the super admin already knows who they
- * are handing the village to, because they arranged it offline. Nothing is
- * self-declared, so there is nothing to spoof — the only thing that can go
- * wrong is typing the number wrong.
- */
-function AddAdminCard({
-  village,
-  uid,
-  busy,
-  onAdd,
-}: {
-  village: Village;
-  uid: string;
-  busy: boolean;
-  onAdd: (entry: {
-    phone: string;
-    name: string;
-    role: string;
-    verifiedVia: VerificationInput['verifiedVia'];
-    verifiedNote: string;
-    verifiedBy: string;
-    termEndsAt: number | null;
-  }) => void;
-}) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [v, setV] = useState<VerificationInput>(() => ({
-    ...emptyVerification(),
-    verifiedVia: 'offline',
-  }));
-
-  const ready =
-    phone.length === 10 && name.trim().length >= 2 && isVerificationComplete(v) && !busy && !!uid;
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-300 bg-white px-4 py-4 text-sm font-bold text-slate-600 transition active:scale-[0.99]"
-      >
-        <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />
-        {t('super.addAdmin')}
-      </button>
-    );
-  }
-
-  return (
-    <section className="rounded-3xl bg-white p-4 shadow-card">
-      <h2 className="text-sm font-bold text-slate-900">{t('super.addAdmin')}</h2>
-      <p className="mt-1 text-xs leading-snug text-slate-500">{t('super.addAdminSub')}</p>
-
-      <div className="mt-4 space-y-4">
-        <div>
-          <label className="label" htmlFor="add-phone">
-            {t('register.phone')} <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="add-phone"
-            type="tel"
-            inputMode="numeric"
-            maxLength={10}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-            placeholder="98XXXXXXXX"
-            className="field"
-          />
-        </div>
-
-        <div>
-          <label className="label" htmlFor="add-name">
-            {t('register.name')} <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="add-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t('register.namePlaceholder')}
-            className="field"
-          />
-        </div>
-
-        <div>
-          <label className="label" htmlFor="add-role">
-            {t('register.role')}
-          </label>
-          <input
-            id="add-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            placeholder={t('register.rolePlaceholder')}
-            className="field"
-          />
-        </div>
-
-        <VerificationFields value={v} onChange={setV} />
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button
-          onClick={() => setOpen(false)}
-          className="rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600"
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          disabled={!ready}
-          onClick={() => {
-            onAdd({
-              phone,
-              name,
-              role,
-              verifiedVia: v.verifiedVia,
-              verifiedNote: v.verifiedNote,
-              verifiedBy: uid,
-              termEndsAt: v.termEndsAt,
-            });
-            setOpen(false);
-            setPhone('');
-            setName('');
-            setRole('');
-          }}
-          className="rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-        >
-          {t('super.addAdminSubmit')}
-        </button>
-      </div>
-      <p className="mt-2 text-center text-[11px] text-slate-400">{village.name}</p>
     </section>
   );
 }

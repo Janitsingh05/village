@@ -108,14 +108,14 @@ export interface NewVillageInput {
   state: string;
   district: string;
   address: string;
-  adminName: string;
-  adminPhone: string;
-  /** What the first admin should be called, e.g. सरपंच. */
+  /**
+   * The public contact card, if it is known yet. All optional: a village can be
+   * created before anyone runs it, and the first Sarpanch fills these in from
+   * their own profile once their application is approved.
+   */
+  adminName?: string;
+  adminPhone?: string;
   adminRole?: string;
-  /** The audit trail for that first admin: who vouched, on what basis, until when. */
-  verifiedBy?: string;
-  verifiedNote?: string;
-  termEndsAt?: number | null;
 }
 
 /** Strip to ASCII and kebab-case; returns '' for a purely non-Latin string. */
@@ -160,39 +160,22 @@ export async function createVillage(input: NewVillageInput): Promise<string> {
     district: input.district,
     address: input.address.trim(),
     lgdCode: (input.lgdCode || '').replace(/\D/g, '').slice(0, 10),
-    adminName: input.adminName.trim(),
-    adminRole: '',
+    adminName: (input.adminName || '').trim(),
+    adminRole: (input.adminRole || '').trim(),
     adminPhotoUrl: null,
-    adminPhone: input.adminPhone.replace(/\D/g, '').slice(-10),
-    adminPhones: [],
-    // The admin's Auth UID is attached the first time they sign in; the
-    // Firestore rules read this array to decide who may update complaints.
+    adminPhone: (input.adminPhone || '').replace(/\D/g, '').slice(-10),
+    // Empty on purpose. A village exists before anyone runs it; the first
+    // Sarpanch registers, a super admin approves them, and that approval is
+    // what puts a UID here. Onboarding grants nobody anything.
     adminUserIds: [],
-    adminTermEnds: input.termEndsAt
-      ? { [input.adminPhone.replace(/\D/g, '').slice(-10)]: input.termEndsAt }
-      : {},
-    adminVerifiedAt: Date.now(),
+    adminTermEnds: {},
+    adminVerifiedAt: null,
     location: input.location ?? null,
     mapPlace: (input.mapPlace || '').trim(),
     createdAt: Date.now(),
   };
 
   await setDoc(doc(col(), id), { ...record, createdAt: serverTimestamp() });
-
-  // Onboarding is the invite path: a super admin typed this number in after
-  // working out offline who they were handing the village to. That is a grant
-  // of access like any other, so it gets the same record behind it — without
-  // this the village would flag its own primary admin as unaccounted for.
-  await setDoc(doc(collection(col(), id, 'admins'), record.adminPhone), {
-    phone: record.adminPhone,
-    name: record.adminName,
-    role: record.adminRole,
-    verifiedVia: 'offline',
-    verifiedNote: (input.verifiedNote || '').trim(),
-    verifiedAt: Date.now(),
-    verifiedBy: input.verifiedBy || '',
-    termEndsAt: input.termEndsAt ?? null,
-  });
 
   return id;
 }
@@ -210,7 +193,6 @@ function fromDoc(id: string, data: Record<string, any>): Village {
     adminRole: data.adminRole ?? '',
     adminPhotoUrl: data.adminPhotoUrl ?? null,
     adminPhone: data.adminPhone ?? '',
-    adminPhones: data.adminPhones ?? [],
     adminUserIds: data.adminUserIds ?? [],
     // Villages onboarded before this existed carry neither; their primary admin
     // still works, they just show as unverified until someone reviews them.
@@ -224,6 +206,8 @@ function fromDoc(id: string, data: Record<string, any>): Village {
 
 function toAdmin(data: Record<string, any>): VillageAdmin {
   return {
+    uid: data.uid ?? '',
+    email: data.email ?? '',
     phone: data.phone ?? '',
     name: data.name ?? '',
     role: data.role ?? '',
@@ -241,59 +225,31 @@ export async function getVillage(id: string): Promise<Village | null> {
 }
 
 /**
- * Links a freshly onboarded admin to their village on first sign-in.
+ * The village a signed-in account administers, or null.
  *
- * Onboarding only knows the admin's phone number — their Firebase Auth UID does
- * not exist until they actually sign in. So the first time they do, we find the
- * village that named their number and append their UID to adminUserIds, which
- * is what the Firestore rules check before allowing any complaint update.
- *
- * The matching rule is enforced server-side too: a user may only ever append
- * their own UID, and only to a village whose adminPhone equals their verified
- * number.
- *
- * Returns the village id they now administer, or null if no village claims them.
+ * One query against the array the Firestore rules already read, so the app and
+ * the rules can never disagree about who this person is. There used to be a
+ * dance here — onboarding recorded a phone number, the UID did not exist until
+ * first sign-in, and the account attached itself with a rule written for that
+ * one purpose. Registering before applying removes the whole problem: the UID
+ * exists first, and approval writes it directly.
  */
-export async function claimVillageForAdmin(uid: string, phone: string): Promise<string | null> {
-  const digits = (phone || '').replace(/\D/g, '').slice(-10);
-  if (!digits) return null;
-
-  // Onboarding sets adminPhone; an approved request adds to adminPhones. Check
-  // both, or an approved admin would sign in and find themselves unlinked.
-  const [primary, extra] = await Promise.all([
-    getDocs(query(col(), where('adminPhone', '==', digits))),
-    getDocs(query(col(), where('adminPhones', 'array-contains', digits))),
-  ]);
-
-  const match = primary.docs[0] || extra.docs[0];
-  if (!match) return null;
-  const existing: string[] = match.data().adminUserIds ?? [];
-
-  if (!existing.includes(uid)) {
-    try {
-      // arrayUnion keeps this safe if two devices sign in at the same moment.
-      await updateDoc(match.ref, { adminUserIds: arrayUnion(uid) });
-    } catch {
-      // Another device won the race, or the write was refused. The village is
-      // still the one that names this number, so hand it back either way — a
-      // genuine permission problem will surface on the next real update rather
-      // than locking the admin out of their own dashboard here.
-    }
-  }
-
-  return match.id;
+export async function villageForUser(uid: string): Promise<string | null> {
+  if (!uid) return null;
+  const snap = await getDocs(query(col(), where('adminUserIds', 'array-contains', uid)));
+  return snap.docs[0]?.id ?? null;
 }
 
 /* ------------------------- who administers a village ------------------------ */
 
 /**
- * The full record for one administrator, at villages/{id}/admins/{phone}.
+ * The full record for one administrator, at villages/{id}/admins/{uid}.
  *
  * A subcollection rather than an array on the village, because the village
- * document is world-readable and these carry a super admin's notes about
- * somebody's identity documents. The village keeps only what the app needs
- * without privilege: the phone numbers, which were already public, and the
- * dates their access runs out.
+ * document is world-readable and these carry an email address and a super
+ * admin's notes about somebody's identity documents. The village keeps only
+ * what the app needs without privilege: the account ids, and the dates their
+ * access runs out.
  */
 function adminsCol(villageId: string) {
   return collection(col(), villageId, 'admins');
@@ -331,28 +287,29 @@ export async function listVillageAdmins(villageId: string): Promise<VillageAdmin
 }
 
 /**
- * Grants a phone number administrative access, with the evidence attached.
+ * Grants an account administrative access, with the evidence attached.
  *
  * Two writes, because the evidence and the access live apart: the record goes
- * in the private subcollection, and the village doc gets the number plus its
- * expiry date so the rules and the app can see them without a privileged read.
+ * in the private subcollection, and the village doc gets the UID plus its expiry
+ * date so the rules and the app can see them without a privileged read.
  */
 export async function addVillageAdmin(
   villageId: string,
   entry: Omit<VillageAdmin, 'verifiedAt'> & { verifiedAt?: number }
 ): Promise<void> {
-  const phone = tenDigits(entry.phone);
-  if (phone.length !== 10) throw new Error('BAD_PHONE');
+  const uid = entry.uid.trim();
+  if (!uid) throw new Error('BAD_UID');
 
   const ref = doc(col(), villageId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('NO_VILLAGE');
-  const village = fromDoc(snap.id, snap.data());
 
   const record: VillageAdmin = {
-    phone,
+    uid,
+    email: entry.email.trim().toLowerCase(),
     name: entry.name.trim(),
     role: entry.role.trim(),
+    phone: tenDigits(entry.phone),
     verifiedVia: entry.verifiedVia,
     verifiedNote: entry.verifiedNote.trim(),
     verifiedAt: entry.verifiedAt ?? Date.now(),
@@ -360,15 +317,23 @@ export async function addVillageAdmin(
     termEndsAt: entry.termEndsAt,
   };
 
-  await setDoc(doc(adminsCol(villageId), phone), record);
+  await setDoc(doc(adminsCol(villageId), uid), record);
 
   const patch: Record<string, unknown> = {
-    adminPhones: arrayUnion(phone),
-    ['adminTermEnds.' + phone]: record.termEndsAt ?? deleteField(),
+    adminUserIds: arrayUnion(uid),
+    ['adminTermEnds.' + uid]: record.termEndsAt ?? deleteField(),
+    adminVerifiedAt: record.verifiedAt,
   };
-  // The public card shows when the person villagers are told to approach was
-  // last checked, so re-verifying the primary admin has to refresh that date.
-  if (tenDigits(village.adminPhone) === phone) patch.adminVerifiedAt = record.verifiedAt;
+
+  // The public card names whoever villagers should approach. An approval is the
+  // moment there is someone to name, so fill it in when it is still blank —
+  // without overwriting details an existing admin has since maintained.
+  const village = fromDoc(snap.id, snap.data());
+  if (!village.adminName && record.name) {
+    patch.adminName = record.name;
+    patch.adminRole = record.role;
+    patch.adminPhone = record.phone;
+  }
 
   await updateDoc(ref, patch);
 }
@@ -376,45 +341,49 @@ export async function addVillageAdmin(
 /**
  * Takes access away, immediately.
  *
- * The number comes off every list that could grant it back — including
- * `adminPhone`, which has its own self-linking rule and would otherwise let a
- * revoked primary admin walk straight back in. Then `adminUserIds` is emptied
- * outright: there is no map from a UID to the phone behind it, so instead of
- * guessing which one to drop, every device is made to prove itself again from
- * a number still on the list. The admin shell re-links on its next load, so
- * everyone still approved is back within a page view and the revoked one is not.
+ * One write does it now: the UID leaves `adminUserIds`, and the Firestore rules
+ * stop recognising that account on their very next read. There is nothing left
+ * to re-attach it — the account cannot add itself back, because no rule lets
+ * anyone write that array but a super admin.
+ *
+ * That is the payoff for making the UID the identity. The old version had to
+ * strip a number from three lists and then empty `adminUserIds` wholesale,
+ * knocking every other admin offline until their next page load, because a UID
+ * could not be traced back to the phone behind it.
  */
-export async function revokeVillageAdmin(villageId: string, phone: string): Promise<void> {
-  const digits = tenDigits(phone);
+export async function revokeVillageAdmin(villageId: string, uid: string): Promise<void> {
   const ref = doc(col(), villageId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('NO_VILLAGE');
+
   const village = fromDoc(snap.id, snap.data());
+  const record = await getDoc(doc(adminsCol(villageId), uid));
 
   const patch: Record<string, unknown> = {
-    adminPhones: village.adminPhones.filter((p) => tenDigits(p) !== digits),
-    adminUserIds: [],
-    ['adminTermEnds.' + digits]: deleteField(),
+    adminUserIds: village.adminUserIds.filter((id) => id !== uid),
+    ['adminTermEnds.' + uid]: deleteField(),
   };
 
-  if (tenDigits(village.adminPhone) === digits) {
-    patch.adminPhone = '';
-    // The public card names whoever the villagers should approach. Leaving a
-    // revoked name up there is worse than showing nobody.
-    patch.adminName = '';
-    patch.adminRole = '';
-    patch.adminPhotoUrl = null;
-    patch.adminVerifiedAt = null;
+  // Leaving a revoked person's name up as the village's contact is worse than
+  // showing nobody, so clear the card when it was theirs.
+  if (record.exists() && record.data().name && record.data().name === village.adminName) {
+    Object.assign(patch, {
+      adminName: '',
+      adminRole: '',
+      adminPhone: '',
+      adminPhotoUrl: null,
+      adminVerifiedAt: null,
+    });
   }
 
   await updateDoc(ref, patch);
-  await deleteDoc(doc(adminsCol(villageId), digits));
+  if (record.exists()) await deleteDoc(record.ref);
 }
 
 /** Extends a term after the super admin has re-checked the same evidence. */
 export async function renewVillageAdmin(
   villageId: string,
-  phone: string,
+  uid: string,
   input: {
     termEndsAt: number | null;
     verifiedVia: VerificationMethod;
@@ -422,14 +391,9 @@ export async function renewVillageAdmin(
     verifiedBy: string;
   }
 ): Promise<void> {
-  const digits = tenDigits(phone);
-  const ref = doc(col(), villageId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error('NO_VILLAGE');
-  const village = fromDoc(snap.id, snap.data());
   const now = Date.now();
 
-  await updateDoc(doc(adminsCol(villageId), digits), {
+  await updateDoc(doc(adminsCol(villageId), uid), {
     termEndsAt: input.termEndsAt,
     verifiedVia: input.verifiedVia,
     verifiedNote: input.verifiedNote.trim(),
@@ -437,12 +401,10 @@ export async function renewVillageAdmin(
     verifiedAt: now,
   });
 
-  const patch: Record<string, unknown> = {
-    ['adminTermEnds.' + digits]: input.termEndsAt ?? deleteField(),
-  };
-  if (tenDigits(village.adminPhone) === digits) patch.adminVerifiedAt = now;
-
-  await updateDoc(ref, patch);
+  await updateDoc(doc(col(), villageId), {
+    ['adminTermEnds.' + uid]: input.termEndsAt ?? deleteField(),
+    adminVerifiedAt: now,
+  });
 }
 
 /**
@@ -459,37 +421,35 @@ export async function setVillageLgdCode(villageId: string, lgdCode: string): Pro
 }
 
 /**
- * When the number currently signed in loses access, or null when no end date
+ * When the account currently signed in loses access, or null when no end date
  * was ever set. Read straight off the public village document, so the admin
  * shell can enforce it without a privileged read.
  */
-export function termEndFor(village: Village | null, phone: string): number | null {
-  if (!village) return null;
-  const end = village.adminTermEnds[tenDigits(phone)];
+export function termEndFor(village: Village | null, uid: string): number | null {
+  if (!village || !uid) return null;
+  const end = village.adminTermEnds[uid];
   return typeof end === 'number' ? end : null;
 }
 
 /**
- * Numbers whose access deserves a second look, from the public document alone.
+ * Accounts whose access deserves a second look, from the public document alone.
  *
  * Counted for the villages list, which reads many villages at once and cannot
  * open a super-admin-only subcollection for each. An expired date is the
  * obvious case; so is no date at all, which means either a grant made before
  * any of this existed or one deliberately left open-ended — both worth opening.
  */
-export function phonesNeedingReview(village: Village, now = Date.now()): string[] {
-  const all = [village.adminPhone, ...village.adminPhones].map(tenDigits).filter(Boolean);
-  return Array.from(new Set(all)).filter((p) => {
-    const end = village.adminTermEnds[p];
+export function accountsNeedingReview(village: Village, now = Date.now()): string[] {
+  return village.adminUserIds.filter((uid) => {
+    const end = village.adminTermEnds[uid];
     return typeof end !== 'number' || end <= now;
   });
 }
 
-/** Numbers holding access that no admin record accounts for. */
-export function unrecordedPhones(village: Village, admins: VillageAdmin[]): string[] {
-  const known = new Set(admins.map((a) => a.phone));
-  const all = [village.adminPhone, ...village.adminPhones].map(tenDigits).filter(Boolean);
-  return Array.from(new Set(all.filter((p) => !known.has(p))));
+/** Accounts holding access that no admin record accounts for. */
+export function unrecordedAccounts(village: Village, admins: VillageAdmin[]): string[] {
+  const known = new Set(admins.map((a) => a.uid));
+  return village.adminUserIds.filter((uid) => !known.has(uid));
 }
 
 

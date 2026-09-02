@@ -8,14 +8,14 @@ import AdminDrawer from '@/components/AdminDrawer';
 import LanguageToggle from '@/components/LanguageToggle';
 import Icon from '@/components/Icon';
 import { signOut, watchSession, type AdminSession } from '@/lib/auth';
-import { claimVillageForAdmin, termEndFor, termState } from '@/lib/villages';
+import { villageForUser, termEndFor, termState } from '@/lib/villages';
 import { setActiveVillage } from '@/lib/tenant';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
 import { isOneOf } from '@/lib/route-match';
 
 /** Routes inside /admin that must stay reachable while signed out. */
-const PUBLIC_ROUTES = ['/admin/login', '/admin/verify', '/admin/register'];
+const PUBLIC_ROUTES = ['/admin/login', '/admin/register'];
 
 /**
  * Client-side guard for the admin area. Firestore rules are the real
@@ -35,20 +35,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => watchSession(setSession), []);
 
-  // Onboarding only records the admin's phone number — their Auth UID does not
-  // exist until this moment. Claim the village on first sign-in so the
-  // Firestore rules will accept their updates, and point the session at it.
-  const claimedFor = useRef<string | null>(null);
+  // Which village this account administers. One query against the same array
+  // the Firestore rules read, so the app and the rules can never disagree —
+  // and nothing to claim, because approval already wrote this UID onto the
+  // village.
+  const resolvedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
-    // Claim once per signed-in account; re-running on every render would loop
+    // Resolve once per signed-in account; re-running on every render would loop
     // against the village reload below.
-    if (claimedFor.current === session.uid) return;
-    claimedFor.current = session.uid;
+    if (resolvedFor.current === session.uid) return;
+    resolvedFor.current = session.uid;
 
     let alive = true;
-    claimVillageForAdmin(session.uid, session.phone)
+    villageForUser(session.uid)
       .then((villageId) => {
         if (!alive) return;
         if (villageId) {
@@ -56,10 +57,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           reloadVillage();
           setUnclaimed(false);
         } else {
-          // Signed in, but no village names this number. On a real backend that
-          // means they cannot update anything, so say so rather than silently
-          // showing them the default village.
-          setUnclaimed(Boolean(session.phone));
+          // Signed in, but no village lists this account — a registration
+          // waiting on approval, or one that was refused. Say so rather than
+          // silently showing them the default village.
+          setUnclaimed(true);
         }
       })
       .catch(() => alive && setUnclaimed(false));
@@ -88,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // the sweep, so this is a stop rather than a lock — it turns away the real
   // case, an ex-admin who still has the app on their phone, and the super admin
   // sees the same expiry in their own list and can revoke properly.
-  if (termState(termEndFor(village.village, session.phone)) === 'expired') {
+  if (termState(termEndFor(village.village, session.uid)) === 'expired') {
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-50 px-6">
         <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-card">
@@ -151,7 +152,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <AdminDrawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        phone={session.phone}
+        email={session.email}
         onSignOut={async () => {
           await signOut();
           router.replace('/admin/login');

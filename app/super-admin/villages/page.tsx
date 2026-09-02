@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
-import { listVillages, phonesNeedingReview } from '@/lib/villages';
+import { listVillages, accountsNeedingReview } from '@/lib/villages';
 import { useI18n } from '@/lib/i18n';
 import { shortDate } from '@/lib/format';
 import type { Village } from '@/lib/types';
@@ -77,7 +77,7 @@ export default function VillagesPage() {
             // Computed from the public document: the full records live in a
             // subcollection, and reading one per village to render a list would
             // cost a query each.
-            const needsReview = phonesNeedingReview(v).length;
+            const needsReview = accountsNeedingReview(v).length;
 
             return (
             <li key={v.id}>

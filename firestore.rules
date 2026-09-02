@@ -26,15 +26,6 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
-    // The ten-digit number Firebase verified for this session, or '' when the
-    // caller signed in by email and never proved a phone at all. Guarded because
-    // splitting a claim that is not there aborts the whole rule.
-    function verifiedPhone() {
-      return isSignedIn() && request.auth.token.phone_number is string
-        ? request.auth.token.phone_number.split('\+91')[1]
-        : '';
-    }
-
     function isSuperAdmin() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -45,26 +36,14 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isSuperAdmin();
 
-      // First sign-in linking. Onboarding records the admin's phone number but
-      // cannot know their Auth UID, which does not exist until they sign in.
-      // Here they attach it themselves — but only their own UID, only appended,
-      // only to the village that named their verified number, and touching no
-      // other field.
+      // Nothing links itself here any more.
       //
-      // Both lists count. adminPhone is the number typed at onboarding;
-      // adminPhones holds everyone approved since. Checking only the first is
-      // what left approved admins signed in but unable to touch anything.
-      //
-      // This is also what makes revoking work: a number removed from both lists
-      // can no longer re-attach itself, so emptying adminUserIds locks out the
-      // revoked device while everyone still listed re-links on their next load.
-      allow update: if isSignedIn()
-        && onlyChanged(['adminUserIds'])
-        && verifiedPhone() != ''
-        && (verifiedPhone() == resource.data.adminPhone
-            || verifiedPhone() in resource.data.adminPhones)
-        && request.resource.data.adminUserIds ==
-             resource.data.adminUserIds.concat([request.auth.uid]);
+      // There used to be a rule letting a signed-in phone append its own UID to
+      // adminUserIds, because onboarding knew a number and the UID did not
+      // exist until first sign-in. Registering before applying removed the gap:
+      // the account exists first, the application carries its UID, and a super
+      // admin writes it. One less way in, and revoking is a single write that
+      // takes effect immediately instead of a number stripped from three lists.
 
       // The admin maintaining their own details. Narrow on purpose: this must
       // not become a way to edit the village itself or grant anyone access.
@@ -191,8 +170,14 @@ service cloud.firestore {
         // The village must actually exist, so a request cannot name a
         // village into being.
         && exists(/databases/$(database)/documents/villages/$(request.resource.data.villageId))
+        // An application belongs to the account that filed it, and nobody can
+        // file one on somebody else's behalf. This is what makes approval a
+        // single write: the UID here is the UID that gets access.
+        && isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
         && request.resource.data.phone is string
-        && request.resource.data.phone.size() == 10
+        && request.resource.data.phone.size() <= 10
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80

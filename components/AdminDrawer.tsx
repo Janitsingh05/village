@@ -8,7 +8,6 @@ import Logo from './Logo';
 import LanguageToggle from './LanguageToggle';
 import { useI18n } from '@/lib/i18n';
 import { useVillage } from '@/lib/village-context';
-import { maskPhone } from '@/lib/format';
 import { samePath } from '@/lib/route-match';
 
 const LINKS = [
@@ -23,12 +22,12 @@ const LINKS = [
 export default function AdminDrawer({
   open,
   onClose,
-  phone,
+  email,
   onSignOut,
 }: {
   open: boolean;
   onClose: () => void;
-  phone: string;
+  email: string;
   onSignOut: () => void;
 }) {
   const { lang, t } = useI18n();
@@ -75,9 +74,9 @@ export default function AdminDrawer({
               {village.name(lang)}
             </p>
             <p className="truncate text-xs text-slate-500">{village.district(lang)}</p>
-            {phone && (
+            {email && (
               <p className="mt-1 truncate font-mono text-[11px] text-slate-400">
-                {t('admin.signedInAs', { phone: maskPhone(phone) })}
+                {t('admin.signedInAs', { account: email })}
               </p>
             )}
           </div>

@@ -7,6 +7,7 @@ import Logo from '@/components/Logo';
 import Icon from '@/components/Icon';
 import PhotoUpload from '@/components/PhotoUpload';
 import { createAdminRequest } from '@/lib/admin-requests';
+import { register, authErrorKind, MIN_PASSWORD } from '@/lib/auth';
 import { listVillages } from '@/lib/villages';
 import { useI18n } from '@/lib/i18n';
 import type { Village } from '@/lib/types';
@@ -19,6 +20,8 @@ export default function AdminRegisterPage() {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [idProof, setIdProof] = useState<File | null>(null);
   const [postProof, setPostProof] = useState<File | null>(null);
 
@@ -32,13 +35,16 @@ export default function AdminRegisterPage() {
       .catch(() => setVillages([]));
   }, []);
 
-  // Both documents are required, not encouraged. A request without evidence
-  // leaves the super admin approving a name they cannot check, which is the
-  // whole problem this screen exists to solve.
+  // Both documents are required, not encouraged. An application without
+  // evidence leaves the super admin approving a name they cannot check, which
+  // is the whole problem this screen exists to solve. The phone number is not
+  // required, because it is contact detail now rather than an identity — the
+  // email and password are what the Sarpanch will sign in with.
   const canSubmit =
     villageId !== '' &&
     name.trim().length >= 2 &&
-    phone.replace(/\D/g, '').length === 10 &&
+    email.trim().includes('@') &&
+    password.length >= MIN_PASSWORD &&
     idProof !== null &&
     postProof !== null &&
     !busy;
@@ -49,10 +55,18 @@ export default function AdminRegisterPage() {
     setBusy(true);
     setError(null);
     try {
+      // The account first, then the application that belongs to it. That order
+      // is what lets approval be a single write to the village later, and it
+      // means the rules can insist an application names the account that filed
+      // it — nobody can apply on somebody else's behalf.
+      const session = await register({ email, password, name });
+
       const village = (villages || []).find((v) => v.id === villageId);
       await createAdminRequest({
         villageId,
         villageName: village?.name || villageId,
+        uid: session.uid,
+        email: session.email,
         name,
         phone,
         role,
@@ -61,8 +75,19 @@ export default function AdminRegisterPage() {
       });
       setSent(true);
     } catch (err) {
+      const kind = authErrorKind(err);
       const code = err instanceof Error ? err.message : '';
-      setError(code === 'ALREADY_REQUESTED' ? t('register.already') : t('register.failed'));
+      setError(
+        kind === 'taken'
+          ? t('register.emailTaken')
+          : kind === 'weak'
+            ? t('register.weakPassword')
+            : kind === 'bad-email'
+              ? t('admin.badEmail')
+              : code === 'ALREADY_REQUESTED'
+                ? t('register.already')
+                : t('register.failed')
+      );
       setBusy(false);
     }
   }
@@ -151,8 +176,46 @@ export default function AdminRegisterPage() {
           </div>
 
           <div>
+            <label className="label" htmlFor="email">
+              {t('admin.email')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="sarpanch@example.com"
+              className="field"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">{t('register.emailNote')}</p>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="password">
+              {t('admin.password')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="field"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              {t('register.passwordNote', { n: MIN_PASSWORD })}
+            </p>
+          </div>
+
+          <div>
             <label className="label" htmlFor="phone">
-              {t('register.phone')} <span className="text-red-500">*</span>
+              {t('register.phone')}{' '}
+              <span className="label-en">({t('common.optional')})</span>
             </label>
             <input
               id="phone"
@@ -164,7 +227,7 @@ export default function AdminRegisterPage() {
               placeholder="98XXXXXXXX"
               className="field"
             />
-            <p className="mt-1.5 text-xs text-slate-500">{t('register.phoneNote')}</p>
+            <p className="mt-1.5 text-xs text-slate-500">{t('register.phoneNoteNew')}</p>
           </div>
 
           <div className="rounded-3xl bg-white p-4 shadow-card">

@@ -1,139 +1,104 @@
 'use client';
 
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
   signOut as fbSignOut,
   onAuthStateChanged,
-  type ConfirmationResult,
+  updateProfile,
   type User,
 } from 'firebase/auth';
 import { auth } from './firebase';
 
 /**
- * Admins sign in by phone + OTP, with email/password kept as a fallback for
- * anyone without the registered SIM to hand.
+ * Admins sign in with an email address and a password. That is the whole of it.
+ *
+ * Phone + OTP used to be the main route, and it was the wrong one for this app.
+ * Every code is an SMS someone has to pay for and a network has to deliver, on
+ * exactly the connections least able to do either; the reCAPTCHA challenge in
+ * front of it stalls on a slow phone; and a Sarpanch who changes SIM loses
+ * their account. An email and a password work offline-ish, cost nothing, and
+ * can be recovered.
+ *
+ * It also makes the account model honest. The identity here is the Firebase
+ * UID, created the moment someone registers — so an application carries the
+ * account it belongs to, and approving it grants that account access directly.
+ * Nothing has to guess later which person a phone number meant.
  */
-
-/** Firebase always sends a six-digit code. */
-export const OTP_LENGTH = 6;
 
 export interface AdminSession {
   email: string;
-  phone: string;
+  /** Display name, set at registration. Empty for older accounts. */
+  name: string;
   uid: string;
 }
 
-function toSession(user: User, fallbackPhone = ''): AdminSession {
+function toSession(user: User): AdminSession {
   return {
     email: user.email || '',
-    phone: user.phoneNumber || fallbackPhone,
+    name: user.displayName || '',
     uid: user.uid,
   };
 }
 
-/* ---------------------------- email / password ---------------------------- */
+/** At least this long, because Firebase refuses anything shorter anyway. */
+export const MIN_PASSWORD = 6;
 
 export async function signIn(email: string, password: string): Promise<AdminSession> {
-  const cred = await signInWithEmailAndPassword(auth(), email.trim(), password);
+  const cred = await signInWithEmailAndPassword(auth(), email.trim().toLowerCase(), password);
   return toSession(cred.user);
 }
 
-/* -------------------------------- phone OTP -------------------------------- */
-
-let pendingConfirmation: ConfirmationResult | null = null;
-let pendingPhone = '';
-let verifier: RecaptchaVerifier | null = null;
-
 /**
- * Firebase requires a reCAPTCHA anchor in the DOM. It is invisible, but it has
- * to exist before signInWithPhoneNumber is called.
- */
-function getVerifier(): RecaptchaVerifier {
-  if (verifier) return verifier;
-  let host = document.getElementById('recaptcha-host');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'recaptcha-host';
-    document.body.appendChild(host);
-  }
-  verifier = new RecaptchaVerifier(auth(), host, { size: 'invisible' });
-  return verifier;
-}
-
-/** Discard a spent verifier so a retry gets a fresh challenge. */
-function resetVerifier() {
-  try {
-    verifier?.clear();
-  } catch {
-    /* already gone */
-  }
-  verifier = null;
-}
-
-/**
- * How long to wait before giving up on the OTP request.
+ * Creates the account an application will be attached to.
  *
- * signInWithPhoneNumber can hang indefinitely — a reCAPTCHA challenge that is
- * never completed never settles the promise — so some limit is needed or the
- * Sarpanch stares at "sending…" with no error and no way to retry.
- *
- * But reCAPTCHA sometimes shows a picture puzzle, and solving one takes real
- * time. A 60s cap would have cancelled a legitimate attempt mid-puzzle and
- * told the user it failed. Hence a deliberately generous ceiling here, paired
- * with an on-screen hint (see the login page) so the wait is never silent.
+ * Registering grants nothing on its own — the new account can sign in and see
+ * "not linked to any village yet" and that is all, until a super admin approves
+ * the application. Creating it first is what gives the application a UID to
+ * carry, so approval is a single write to the village rather than a phone
+ * number waiting to be matched to whoever turns up with it.
  */
-const OTP_REQUEST_TIMEOUT_MS = 150_000;
+export async function register(input: {
+  email: string;
+  password: string;
+  name: string;
+}): Promise<AdminSession> {
+  const cred = await createUserWithEmailAndPassword(
+    auth(),
+    input.email.trim().toLowerCase(),
+    input.password
+  );
 
-/** After this long, tell the user a challenge may be waiting for them. */
-export const OTP_SLOW_HINT_MS = 12_000;
-
-/** Step 1 — send the code. `phone` is 10 digits, India assumed. */
-export async function startPhoneSignIn(phone: string): Promise<void> {
-  const digits = phone.replace(/\D/g, '').slice(-10);
-  if (digits.length !== 10) throw new Error('BAD_PHONE');
-  pendingPhone = digits;
-
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('OTP_TIMEOUT')), OTP_REQUEST_TIMEOUT_MS);
-  });
-
-  try {
-    pendingConfirmation = await Promise.race([
-      signInWithPhoneNumber(auth(), '+91' + digits, getVerifier()),
-      timeout,
-    ]);
-  } catch (e) {
-    // A failed attempt burns the reCAPTCHA token; without this a second try
-    // fails for a reason that has nothing to do with the phone number.
-    resetVerifier();
-    throw e;
-  } finally {
-    clearTimeout(timer);
+  const name = input.name.trim();
+  if (name) {
+    // Best effort: the name is also stored on the application, which is what
+    // the super admin actually reads.
+    await updateProfile(cred.user, { displayName: name }).catch(() => undefined);
   }
+
+  return { ...toSession(cred.user), name };
 }
 
-/** Step 2 — check the code and open the session. */
-export async function confirmOtp(code: string): Promise<AdminSession> {
-  const digits = code.replace(/\D/g, '');
-  if (digits.length !== OTP_LENGTH) throw new Error('BAD_OTP');
-  if (!pendingConfirmation) throw new Error('NO_PENDING_OTP');
-
-  const cred = await pendingConfirmation.confirm(digits);
-  return toSession(cred.user, pendingPhone);
+/** Firebase error codes, turned into something a screen can act on. */
+export function authErrorKind(
+  e: unknown
+): 'taken' | 'weak' | 'bad-email' | 'wrong' | 'offline' | 'failed' {
+  const code = (e as { code?: string })?.code || '';
+  if (code === 'auth/email-already-in-use') return 'taken';
+  if (code === 'auth/weak-password') return 'weak';
+  if (code === 'auth/invalid-email') return 'bad-email';
+  if (
+    code === 'auth/wrong-password' ||
+    code === 'auth/user-not-found' ||
+    code === 'auth/invalid-credential'
+  ) {
+    return 'wrong';
+  }
+  if (code === 'auth/network-request-failed') return 'offline';
+  return 'failed';
 }
-
-export function getPendingPhone(): string {
-  return pendingPhone;
-}
-
-/* --------------------------------- session --------------------------------- */
 
 export async function signOut(): Promise<void> {
-  pendingConfirmation = null;
-  resetVerifier();
   await fbSignOut(auth());
 }
 

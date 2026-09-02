@@ -100,28 +100,28 @@ export type VerificationMethod = 'document' | 'directory' | 'phone' | 'offline';
 /**
  * One approved administrator of a village, and the evidence behind them.
  *
- * `adminPhones` and `adminUserIds` stay the arrays the Firestore rules read —
- * this runs alongside them and carries everything the rules do not care about
- * but a human reviewing an account later very much does.
+ * Keyed by the Firebase Auth UID, which is the identity everywhere now — it
+ * exists from the moment someone registers, so an application carries the exact
+ * account approval will grant, and nothing has to work out later which person a
+ * phone number meant. `adminUserIds` on the village stays the array the rules
+ * read; this runs alongside it and carries everything the rules do not care
+ * about but a human reviewing an account later very much does.
  *
- * There is deliberately no Auth UID here. A signed-in admin may only ever
- * append their own UID to `adminUserIds` and touch nothing else, so the client
- * could not fill one in; revoking works by emptying that array instead and
- * making every device re-prove itself from a phone number still on the list.
- *
- * These live at `villages/{id}/admins/{phone}`, readable by a super admin only.
+ * These live at `villages/{id}/admins/{uid}`, readable by a super admin only.
  * The village document itself is world-readable — that transparency is the
  * point of the app — and a reviewer's note about someone's identity documents
  * has no business being public. What the village doc carries instead is
- * `adminTermEnds`: dates keyed by a phone number that was already public, which
- * is enough for the app to enforce an expiry without publishing anything.
+ * `adminTermEnds`: dates keyed by UID, which say nothing about anybody.
  */
 export interface VillageAdmin {
-  /** Ten digits. The identity, since it is what the OTP proves. */
-  phone: string;
+  /** Firebase Auth UID. The identity, and the key this document is stored at. */
+  uid: string;
+  email: string;
   name: string;
   /** सरपंच / सचिव / वार्ड सदस्य … */
   role: string;
+  /** Contact number for the public card. Never used to decide access. */
+  phone: string;
   verifiedVia: VerificationMethod;
   /** What the super admin actually checked, in their own words. */
   verifiedNote: string;
@@ -149,22 +149,29 @@ export interface Village {
    * claimed Sarpanch against the state's own record before approving them.
    */
   lgdCode: string;
+  /**
+   * The public contact card: who villagers should approach, and how.
+   *
+   * Contact details, not credentials. Access is decided entirely by
+   * `adminUserIds`, so clearing these hides a name without locking anyone out
+   * and filling them in grants nothing. The admin maintains them from their own
+   * profile screen.
+   */
   adminName: string;
   /** What the villagers should call them, e.g. सरपंच / सचिव. */
   adminRole: string;
   /** Small inline portrait, shown to residents so they know who to approach. */
   adminPhotoUrl: string | null;
   adminPhone: string;
-  /** Extra admins approved after onboarding, by phone number. */
-  adminPhones: string[];
+  /** Every account allowed to administer this village. The rules read this. */
   adminUserIds: string[];
   /**
-   * When each admin's term runs out, keyed by their ten-digit number. Public,
-   * because a date against an already-public number reveals nothing, and both
-   * the admin app and the review list need it without a privileged read.
+   * When each admin's term runs out, keyed by UID. Public, because a date
+   * against an opaque id says nothing about anyone, and both the admin app and
+   * the review list need it without a privileged read.
    */
   adminTermEnds: Record<string, number>;
-  /** When the primary admin was last checked — the date on the public card. */
+  /** When the contact card was last confirmed — the date shown to villagers. */
   adminVerifiedAt: number | null;
   /** Coordinates confirmed against a map when the village was onboarded. */
   location: { lat: number; lng: number } | null;
@@ -186,7 +193,16 @@ export interface AdminRequest {
   id: string;
   villageId: string;
   villageName: string;
+  /**
+   * The account this application belongs to, created before it was filed.
+   *
+   * Approving writes exactly this UID onto the village, so there is no window
+   * where a grant is waiting for the right person to turn up and claim it.
+   */
+  uid: string;
+  email: string;
   name: string;
+  /** Contact number for the public card. Optional, and never an identity. */
   phone: string;
   role: string;
   /**

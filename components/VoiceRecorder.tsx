@@ -163,24 +163,29 @@ export default function VoiceRecorder({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative flex w-full items-center justify-center">
-        {/* The meter sits behind the button and runs off both sides of it. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 flex items-center justify-between"
-        >
-          {levels.map((level, i) => (
-            <span
-              key={i}
-              className={
-                'w-[3px] shrink-0 rounded-full transition-[height] duration-75 ' +
-                (recording ? 'bg-brand-500' : 'bg-brand-300/60')
-              }
-              style={{ height: Math.round(6 + level * (big ? 90 : 50)) + 'px' }}
-            />
-          ))}
-        </div>
+      {/* The meter is its own band, above the button rather than behind it.
+          Crossing the two crowds the mic and leaves the waveform half hidden;
+          stacked, each is a whole shape and the button is unmistakably the
+          thing to press. */}
+      <div
+        aria-hidden
+        className={
+          'flex w-full items-center justify-between ' + (big ? 'h-24' : 'h-14')
+        }
+      >
+        {levels.map((level, i) => (
+          <span
+            key={i}
+            className={
+              'w-[3px] shrink-0 rounded-full transition-[height] duration-75 ' +
+              (recording ? 'bg-brand-500' : 'bg-brand-300/60')
+            }
+            style={{ height: Math.round(6 + level * (big ? 90 : 50)) + 'px' }}
+          />
+        ))}
+      </div>
 
+      <div className={'flex w-full items-center justify-center ' + (big ? 'mt-6' : 'mt-4')}>
         <button
           type="button"
           onClick={() => (recording ? finish() : start())}
