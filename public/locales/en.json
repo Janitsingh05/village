@@ -358,7 +358,14 @@
     "reportAbout": "about {name}",
     "reportOpen": "New",
     "reportReviewed": "Reviewed",
-    "markReviewed": "Mark reviewed"
+    "markReviewed": "Mark reviewed",
+    "clearHeading": "Clear complaints",
+    "clearSub": "For wiping a pilot’s test complaints. Their photos and recordings go too.",
+    "clearCta": "Delete all {n} complaints",
+    "clearConfirm": "All {n} complaints in {village} will be gone for good — photos and audio included. They cannot be brought back.",
+    "clearYes": "Yes, delete them",
+    "clearing": "Deleting {done}/{total}…",
+    "cleared": "{n} complaints deleted."
   },
   "setup": {
     "title": "Setup check",

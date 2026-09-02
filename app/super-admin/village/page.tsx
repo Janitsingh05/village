@@ -19,11 +19,14 @@ import {
   unrecordedPhones,
   type TermState,
 } from '@/lib/villages';
+import { deleteAllComplaints } from '@/lib/complaints';
 import { watchSession } from '@/lib/auth';
 import { directorySearchUrl } from '@/lib/lgd';
 import { useRouteId } from '@/lib/route-id';
 import { useI18n } from '@/lib/i18n';
 import { shortDate } from '@/lib/format';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { Village, VillageAdmin } from '@/lib/types';
 
 const TERM_CHIP: Record<TermState, string> = {
@@ -176,6 +179,8 @@ export default function SuperVillagePage() {
         busy={busy}
         onAdd={(entry) => run(() => addVillageAdmin(village.id, entry))}
       />
+
+      <ClearComplaints villageId={village.id} villageName={village.name} />
     </main>
   );
 }
@@ -393,6 +398,112 @@ function UnrecordedAdmins({
         ))}
       </ul>
     </div>
+  );
+}
+
+/* -------------------------------- clearing -------------------------------- */
+
+/**
+ * Emptying a village's feed, for a pilot that is done being a pilot.
+ *
+ * Kept away from every other control on this screen and deliberately slow to
+ * reach: the count has to be fetched, then confirmed, and only then does
+ * anything go. Complaints are the one thing in this app nobody can recreate —
+ * a villager filed each of them and would have no idea they had gone.
+ *
+ * Village admins never see this. The rules put deletion behind isSuperAdmin()
+ * for the same reason: a public feed the Panchayat can quietly edit is not a
+ * public feed.
+ */
+function ClearComplaints({ villageId, villageName }: { villageId: string; villageName: string }) {
+  const { t } = useI18n();
+  const [count, setCount] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [cleared, setCleared] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getDocs(collection(db(), 'villages', villageId, 'complaints'))
+      .then((snap) => alive && setCount(snap.size))
+      .catch(() => alive && setCount(null));
+    return () => {
+      alive = false;
+    };
+  }, [villageId, cleared]);
+
+  async function clear() {
+    setConfirming(false);
+    setFailed(false);
+    setProgress({ done: 0, total: count ?? 0 });
+    try {
+      const n = await deleteAllComplaints(villageId, (done, total) =>
+        setProgress({ done, total })
+      );
+      setCleared(n);
+    } catch {
+      setFailed(true);
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  if (!count && cleared === null) return null;
+
+  return (
+    <section className="rounded-3xl border-2 border-red-100 bg-white p-4">
+      <h2 className="text-sm font-bold text-red-800">{t('super.clearHeading')}</h2>
+      <p className="mt-1 text-xs leading-snug text-slate-500">{t('super.clearSub')}</p>
+
+      {cleared !== null && (
+        <p className="mt-3 rounded-2xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-800">
+          {t('super.cleared', { n: cleared })}
+        </p>
+      )}
+
+      {failed && (
+        <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {t('super.decideFailed')}
+        </p>
+      )}
+
+      {progress ? (
+        <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-center text-sm font-semibold text-slate-600">
+          {t('super.clearing', { done: progress.done, total: progress.total })}
+        </p>
+      ) : confirming ? (
+        <div className="mt-3 rounded-2xl bg-red-50 p-3">
+          <p className="text-[13px] leading-snug text-red-800">
+            {t('super.clearConfirm', { n: count ?? 0, village: villageName })}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setConfirming(false)}
+              className="rounded-xl border-2 border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-700"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={clear}
+              className="rounded-xl bg-red-600 px-3 py-2.5 text-sm font-bold text-white"
+            >
+              {t('super.clearYes')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        count !== null &&
+        count > 0 && (
+          <button
+            onClick={() => setConfirming(true)}
+            className="mt-3 w-full rounded-xl border-2 border-red-200 px-3 py-2.5 text-sm font-bold text-red-700 transition active:scale-[0.99]"
+          >
+            {t('super.clearCta', { n: count })}
+          </button>
+        )
+      )}
+    </section>
   );
 }
 

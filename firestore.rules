@@ -133,7 +133,14 @@ service cloud.firestore {
         allow update: if onlyChanged(['feedback', 'updatedAt'])
           && request.resource.data.feedback.verdict in ['still_open', 'confirmed'];
 
-        allow delete: if isVillageAdmin(villageId);
+        // Deleting is the super admin's, not the Sarpanch's.
+        //
+        // A village admin can move a complaint through its statuses and add
+        // proof, and that is the whole of their power over it — the point of a
+        // public feed is that the office being complained about cannot make a
+        // complaint disappear. Clearing a pilot's test data is a different job,
+        // done by whoever runs the platform.
+        allow delete: if isSuperAdmin();
 
         // Full-size images live here, one document each, because Cloud Storage
         // needs a billing account and a village pilot should not. The size cap
@@ -147,7 +154,11 @@ service cloud.firestore {
           allow create: if request.resource.data.data is string
             && request.resource.data.data.size() < 900000
             && (kind.matches('photo-[0-2]') || kind == 'voice' || isVillageAdmin(villageId));
-          allow update, delete: if isVillageAdmin(villageId);
+          allow update: if isVillageAdmin(villageId);
+          // Deleted alongside the complaint they belong to; Firestore will not
+          // remove a subcollection with its parent, so these have to go first
+          // or the photos and recording outlive the complaint invisibly.
+          allow delete: if isSuperAdmin();
         }
       }
 

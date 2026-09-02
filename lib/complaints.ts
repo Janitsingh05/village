@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -251,6 +252,63 @@ export async function getVoiceNote(
   return typeof data.data === 'string'
     ? { dataUrl: data.data, mimeType: data.mimeType ?? 'audio/webm' }
     : null;
+}
+
+/* -------------------------------- deleting -------------------------------- */
+
+/** Every media key a complaint can carry, for a delete that leaves nothing. */
+const MEDIA_KINDS = ['photo-0', 'photo-1', 'photo-2', 'voice', 'proof'];
+
+/**
+ * Removes a complaint and everything underneath it.
+ *
+ * Firestore does not delete a subcollection with its parent, so the photos and
+ * the recording have to go first — otherwise they outlive the complaint,
+ * invisible in the console and still counted against the free tier. The keys
+ * are a fixed list rather than a query because a client cannot list a
+ * subcollection, and every one a complaint can have is known here anyway.
+ *
+ * Deleting is the super admin's alone. A village admin moves a complaint
+ * through its statuses and adds proof, and that is the whole of their power
+ * over it: a public feed the office being complained about can quietly edit is
+ * not a public feed. The rules enforce the same split.
+ */
+export async function deleteComplaint(
+  complaintId: string,
+  villageId = activeVillageId()
+): Promise<void> {
+  await Promise.all(
+    MEDIA_KINDS.map((kind) =>
+      deleteDoc(mediaDoc(villageId, complaintId, kind)).catch(() => {
+        // Most complaints have none of these; a missing document is the normal
+        // case, not a failure.
+      })
+    )
+  );
+  await deleteDoc(doc(complaintsCol(villageId), complaintId));
+}
+
+/**
+ * Empties a village's feed. For clearing a pilot, not for everyday use.
+ *
+ * Sequential on purpose: this is dozens of deletes on a rural connection, and
+ * firing them all at once is how a phone ends up with half of them done and no
+ * way to tell which half. `onProgress` lets the screen count up so nobody
+ * decides it has hung and closes the tab midway.
+ */
+export async function deleteAllComplaints(
+  villageId = activeVillageId(),
+  onProgress?: (done: number, total: number) => void
+): Promise<number> {
+  const snap = await getDocs(complaintsCol(villageId));
+  let done = 0;
+
+  for (const row of snap.docs) {
+    await deleteComplaint(row.id, villageId);
+    onProgress?.(++done, snap.size);
+  }
+
+  return done;
 }
 
 /** Admin: move a complaint along the pipeline, optionally with proof. */
