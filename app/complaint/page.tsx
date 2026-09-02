@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatusBadge, { STATUS_DOT } from '@/components/StatusBadge';
 import Icon from '@/components/Icon';
+import VoicePlayer from '@/components/VoicePlayer';
 import { getComplaint, getComplaintPhotos, getFullPhoto, submitFeedback } from '@/lib/complaints';
 import { categoryOf, STATUS_TIMELINE, wardLabel } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
@@ -228,8 +229,18 @@ export default function ComplaintDetailPage() {
           </div>
         </div>
 
-        <section>
+        <section className="space-y-2">
           <h2 className="mb-2 text-base font-bold text-slate-900">{t('detail.descHeading')}</h2>
+          {/* Above the text on purpose: when a complaint was spoken, the
+              recording is what was actually said and the line below it may be
+              a machine transcript of it. */}
+          {complaint.voiceNote && (
+            <VoicePlayer
+              complaintId={complaint.id}
+              seconds={complaint.voiceNote.seconds}
+              villageId={complaint.villageId}
+            />
+          )}
           <p className="whitespace-pre-wrap rounded-2xl bg-white p-4 text-[15px] leading-relaxed text-slate-700 shadow-card">
             {complaint.description}
           </p>

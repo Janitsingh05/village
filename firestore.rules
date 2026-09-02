@@ -107,6 +107,13 @@ service cloud.firestore {
           && request.resource.data.photoCount is int
           && request.resource.data.photoCount >= 0
           && request.resource.data.photoCount <= 3
+          // The audio lives in its own document; only its length rides here,
+          // bounded so the marker cannot outlive what the recorder will make.
+          && (!('voiceNote' in request.resource.data.keys())
+              || request.resource.data.voiceNote == null
+              || (request.resource.data.voiceNote.seconds is int
+                  && request.resource.data.voiceNote.seconds > 0
+                  && request.resource.data.voiceNote.seconds <= 120))
           // Resolved from the reporter's coordinates; bounded so it cannot be
           // used to smuggle arbitrary text onto a public document.
           && (!('address' in request.resource.data.location.keys())
@@ -133,11 +140,13 @@ service cloud.firestore {
         // keeps a write from failing against Firestore's 1 MiB document limit.
         match /media/{kind} {
           allow read: if true;
-          // photo-0 .. photo-2 come from the citizen filing the complaint;
-          // 'proof' is the admin's evidence and only they may write it.
+          // photo-0 .. photo-2 and 'voice' come from the citizen filing the
+          // complaint; 'proof' is the admin's evidence and only they may write
+          // it. A spoken complaint is public exactly like a written one — the
+          // whole point is that the village can see what was reported.
           allow create: if request.resource.data.data is string
             && request.resource.data.data.size() < 900000
-            && (kind.matches('photo-[0-2]') || isVillageAdmin(villageId));
+            && (kind.matches('photo-[0-2]') || kind == 'voice' || isVillageAdmin(villageId));
           allow update, delete: if isVillageAdmin(villageId);
         }
       }

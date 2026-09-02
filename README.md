@@ -93,6 +93,7 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 | --- | --- |
 | `/` | Hero, "report a problem" CTA, four stat tiles, recent complaints, bottom nav |
 | `/report` | 5-step form: category tiles, description (0/200), photo, GPS-or-ward, contact |
+| `/report/voice` | Spoken complaint: one question per screen, read aloud, number pad instead of a keyboard |
 | `/complaint/[id]` | Public ref, photo, meta, status timeline, proof, "fixed / still broken" feedback |
 | `/complaints` | Full public feed with status filters |
 | `/announcements` | Notices, tabbed All / Urgent |
@@ -144,6 +145,72 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
   the signed-in user — no data migration.
 - **Public phone numbers are masked** (`98xxxxxx10`) on the citizen-facing
   detail page; admins see the full number as a `tel:` link.
+
+## Filing a complaint by speaking
+
+`/report/voice` asks one thing per screen with one large control under it, and
+reads every question aloud where the device has a voice for the language. It
+exists because the ordinary form asks five questions down a scrolling page,
+which is fine if you read comfortably and impossible if you do not.
+
+### The recording is the complaint
+
+The important decision: **the audio is stored, and the transcript is a bonus.**
+
+Dictation (`SpeechRecognition`) is Chrome and Edge only, needs a live connection
+because the audio is sent away to be transcribed, and gets Indian-language
+village vocabulary wrong often enough to matter. And the person most likely to
+use this flow is the least able to proofread what it produced — telling them to
+check a transcript they cannot read is not a feature.
+
+So `MediaRecorder` runs alongside it. That works in every browser here, offline,
+and puts the reporter's own voice in front of the Sarpanch, who is a person and
+can simply listen. Whichever arrives is used; the audio is the one that always
+shows up. A clip lands in the complaint's `media/voice` document at ~24 kbps
+Opus — a minute is ~180 KB, ~240 KB base64 — beside the photos, for the same
+reason they are there.
+
+`voiceNote` on the complaint carries only the length and the container, so a
+feed row can show a play button without dragging audio down a 3G connection.
+
+### What each screen does
+
+| Step | Control | If it is not available |
+| --- | --- | --- |
+| What is the problem | Record + live meter | Nothing to fall back to; the written form is one tap away |
+| What is it about | Eight icon tiles, pre-selected from the transcript | Tiles are icons, so they work with no transcript at all |
+| Photo | Camera | Skippable |
+| Where | One GPS button | Skippable |
+| Number | Number pad, not a keyboard | — |
+
+The category guess (`lib/category-guess.ts`) is a word list, not a classifier.
+Its job is to save a tap in the usual case; the tiles stay on screen and stay
+changeable, so a wrong guess costs one tap and never files the wrong thing.
+
+The number pad is the point of that row: a phone number is the only thing this
+flow cannot avoid asking for, and a text field would summon a full QWERTY
+keyboard — the exact obstacle the screen exists to route around. Someone who
+cannot read a form has still dialled a number every day of their life.
+
+### Where it does not work, and what happens then
+
+- **No `MediaRecorder`** — the screen says so and points at the written form
+  rather than showing a dead button.
+- **Microphone refused** — same, with the reason.
+- **No dictation** — nothing is said about it. The complaint is going through
+  fine on the recording, and an error about speech recognition would only worry
+  someone who has no problem.
+- **No installed voice for the language** — the speaker button is not rendered.
+  Reading a Hindi prompt in an English voice produces sounds, not speech.
+- **Playback across platforms** — Android Chrome records WebM/Opus and iOS
+  Safari records MP4/AAC, and neither reliably plays the other. The container is
+  stored with the clip and the player reports a failure instead of sitting there
+  silent.
+
+`DictateButton` on the ordinary form is a different thing for a different
+person: it fills a text field for someone who reads fine but would rather not
+thumb Devanagari into a phone keyboard. No audio is kept there, because they can
+see and fix what comes out.
 
 ## Language, and the order the questions come in
 

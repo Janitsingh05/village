@@ -32,6 +32,15 @@ export interface Complaint {
   photoUrl: string | null;
   /** How many full images exist at media/photo-0 … media/photo-(n-1). */
   photoCount: number;
+  /**
+   * A spoken complaint, stored at media/voice.
+   *
+   * Only the length and the container live on the complaint, so a feed row
+   * knows there is something to play without dragging the audio down with it.
+   * The recording is the record here — the description beside it may be a
+   * machine transcript nobody could proofread, so the Sarpanch listens.
+   */
+  voiceNote: { seconds: number; mimeType: string } | null;
   location: {
     ward: string;
     lat?: number;
@@ -58,6 +67,8 @@ export interface NewComplaintInput {
   category: CategoryId;
   description: string;
   photoFiles: File[];
+  /** A recorded complaint, from the spoken flow. */
+  voice?: { dataUrl: string; mimeType: string; seconds: number } | null;
   ward: string;
   lat?: number;
   lng?: number;

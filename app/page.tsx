@@ -62,7 +62,7 @@ export default function HomePage() {
         </section>
 
         {/* Primary call to action */}
-        <section className="px-4">
+        <section className="space-y-2 px-4">
           <Link
             href="/report"
             className="flex items-center gap-4 rounded-3xl bg-brand-700 p-4 text-white shadow-cta transition active:scale-[0.99]"
@@ -79,6 +79,25 @@ export default function HomePage() {
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-brand-700">
               <Icon name="arrowRight" className="h-5 w-5" strokeWidth={2.2} />
             </span>
+          </Link>
+
+          {/* Beside the form, not hidden inside it. Someone who does not write
+              needs to see the way in before they open something they cannot
+              fill. */}
+          <Link
+            href="/report/voice"
+            className="flex items-center gap-3 rounded-3xl border-2 border-brand-200 bg-white p-3.5 transition active:scale-[0.99]"
+          >
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">
+              <Icon name="mic" className="h-6 w-6" strokeWidth={1.8} filled />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-bold leading-tight text-slate-900">
+                {t('voice.entry')}
+              </span>
+              <span className="block truncate text-sm text-slate-500">{t('voice.entrySub')}</span>
+            </span>
+            <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-slate-300" />
           </Link>
         </section>
 

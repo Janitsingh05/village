@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import CategoryIcon from '@/components/CategoryIcon';
+import VoicePlayer from '@/components/VoicePlayer';
 import PhotoUpload from '@/components/PhotoUpload';
 import Icon from '@/components/Icon';
 import { getComplaint, getFullPhoto, updateComplaintStatus } from '@/lib/complaints';
@@ -124,6 +125,18 @@ export default function AdminComplaintPage() {
           <p className="text-[15px] font-bold leading-snug text-slate-900">
             {complaint.description}
           </p>
+          {/* A spoken complaint reaches the Panchayat as the reporter's own
+              voice. Whoever is reading this can simply listen, which no
+              transcript of a villager over a phone speaker can replace. */}
+          {complaint.voiceNote && (
+            <div className="mt-2">
+              <VoicePlayer
+                complaintId={complaint.id}
+                seconds={complaint.voiceNote.seconds}
+                villageId={complaint.villageId}
+              />
+            </div>
+          )}
           <p className="mt-1 font-mono text-xs text-slate-400">{complaint.ref}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
             <span className="flex items-center gap-1">

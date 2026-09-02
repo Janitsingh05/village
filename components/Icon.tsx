@@ -25,6 +25,10 @@ type IconName =
   | 'shield'
   | 'download'
   | 'globe'
+  | 'mic'
+  | 'stop'
+  | 'play'
+  | 'speaker'
   | 'back';
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -117,6 +121,22 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </>
+  ),
+  mic: (
+    <>
+      <rect x="9" y="2.5" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21M8.5 21h7" />
+    </>
+  ),
+  stop: <rect x="6" y="6" width="12" height="12" rx="2.5" />,
+  play: <path d="M8 5.5l10 6.5-10 6.5z" />,
+  speaker: (
+    <>
+      <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" />
+      <path d="M15.5 9.2a4 4 0 0 1 0 5.6" />
+      <path d="M18 6.8a7.5 7.5 0 0 1 0 10.4" />
     </>
   ),
   shield: (

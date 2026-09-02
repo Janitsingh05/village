@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import Link from 'next/link';
 import AppHeader from '@/components/AppHeader';
 import CategoryPicker from '@/components/CategoryPicker';
 import PhotoUpload from '@/components/PhotoUpload';
+import DictateButton from '@/components/DictateButton';
 import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
 import { MAX_PHOTOS, wardOptions } from '@/lib/config';
@@ -105,6 +107,25 @@ export default function ReportPage() {
       <AppHeader back="/" title={t('report.title')} />
 
       <main className="mx-auto max-w-2xl px-4 pb-4">
+        {/* The way out of this form, offered before it starts rather than
+            buried under it: someone who would struggle with five fields should
+            not have to read all five to find that out. */}
+        <Link
+          href="/report/voice"
+          className="mb-4 flex items-center gap-4 rounded-3xl bg-brand-700 p-4 text-white shadow-cta transition active:scale-[0.99]"
+        >
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/15">
+            <Icon name="mic" className="h-7 w-7" strokeWidth={1.8} filled />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold leading-tight">{t('voice.entry')}</span>
+            <span className="mt-0.5 block text-sm leading-snug text-brand-100">
+              {t('voice.entrySub')}
+            </span>
+          </span>
+          <Icon name="arrowRight" className="h-6 w-6 shrink-0" strokeWidth={2.2} />
+        </Link>
+
         <div className="mb-5 flex items-start gap-2.5 rounded-2xl bg-brand-50 p-3">
           <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-white">
             <Icon name="checkCircle" className="h-4 w-4" strokeWidth={2.4} />
@@ -131,9 +152,15 @@ export default function ReportPage() {
               placeholder={t('report.descPlaceholderNew')}
               className="field resize-none"
             />
-            <p className="mt-1 text-right text-xs text-slate-400">
-              {description.length}/{DESC_MAX}
-            </p>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <DictateButton
+                onText={(text) => setDescription(text.slice(0, DESC_MAX))}
+                current={description}
+              />
+              <p className="text-xs text-slate-400">
+                {description.length}/{DESC_MAX}
+              </p>
+            </div>
           </section>
 
           <section>

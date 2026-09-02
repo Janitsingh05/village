@@ -41,6 +41,10 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
     description: data.description ?? '',
     photoUrl: data.photoUrl ?? null,
     photoCount: typeof data.photoCount === 'number' ? data.photoCount : data.photoUrl ? 1 : 0,
+    voiceNote:
+      data.voiceNote && typeof data.voiceNote.seconds === 'number'
+        ? { seconds: data.voiceNote.seconds, mimeType: data.voiceNote.mimeType ?? 'audio/webm' }
+        : null,
     location: data.location ?? { ward: '' },
     status: (data.status as ComplaintStatus) ?? 'pending',
     reportedBy: data.reportedBy ?? { name: '', phone: '' },
@@ -61,7 +65,7 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
  * in its own doc that is only fetched when someone opens the complaint. See
  * lib/imageCompress.ts for why they are not in Cloud Storage.
  */
-/** media keys: 'photo-0' … 'photo-2' for the citizen, 'proof' for the admin. */
+/** media keys: 'photo-0' … 'photo-2' and 'voice' from the citizen, 'proof' from the admin. */
 function mediaDoc(villageId: string, complaintId: string, kind: string) {
   return doc(complaintsCol(villageId), complaintId, 'media', kind);
 }
@@ -174,6 +178,11 @@ export async function createComplaint(
     // so putting all of them here would make the list heavy on a 3G connection.
     photoUrl: thumb,
     photoCount: fulls.length,
+    // The marker rides on the complaint so a feed row can show a play button
+    // without reading the audio; the clip itself is written below.
+    voiceNote: input.voice
+      ? { seconds: input.voice.seconds, mimeType: input.voice.mimeType }
+      : null,
     location: {
       ward: input.ward,
       ...(input.lat != null ? { lat: input.lat, lng: input.lng } : {}),
@@ -189,18 +198,49 @@ export async function createComplaint(
     updatedAt: serverTimestamp(),
   });
 
-  await Promise.all(
-    fulls.map((data, i) =>
+  await Promise.all([
+    ...fulls.map((data, i) =>
       setDoc(mediaDoc(villageId, docRef.id, 'photo-' + i), {
         data,
         createdAt: serverTimestamp(),
       }).catch(() => {
         // The feed still shows the thumbnail; only the full view loses one.
       })
-    )
-  );
+    ),
+    input.voice
+      ? setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
+          data: input.voice.dataUrl,
+          mimeType: input.voice.mimeType,
+          seconds: input.voice.seconds,
+          createdAt: serverTimestamp(),
+        }).catch(() => {
+          // The complaint still carries its transcript and its photo. Worth
+          // saying out loud on the detail screen rather than showing a play
+          // button that plays nothing — see getVoiceNote.
+        })
+      : Promise.resolve(),
+  ]);
 
   return docRef.id;
+}
+
+/**
+ * The recorded complaint, fetched only when someone presses play.
+ *
+ * Returns null when the clip never made it — the marker on the complaint is
+ * written first and the audio second, so a dropped connection between the two
+ * leaves a play button with nothing behind it.
+ */
+export async function getVoiceNote(
+  complaintId: string,
+  villageId = activeVillageId()
+): Promise<{ dataUrl: string; mimeType: string } | null> {
+  const snap = await getDoc(mediaDoc(villageId, complaintId, 'voice'));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return typeof data.data === 'string'
+    ? { dataUrl: data.data, mimeType: data.mimeType ?? 'audio/webm' }
+    : null;
 }
 
 /** Admin: move a complaint along the pipeline, optionally with proof. */

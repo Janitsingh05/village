@@ -502,5 +502,33 @@
     "state_expiring": "Ending soon",
     "state_expired": "Term ended",
     "state_open-ended": "No end date"
+  },
+  "voice": {
+    "entry": "Speak your complaint",
+    "entrySub": "Cannot write? Just talk",
+    "prompt_speak": "What is the problem?",
+    "prompt_category": "What is it about?",
+    "prompt_photo": "Take a photo",
+    "prompt_place": "Where is this?",
+    "prompt_phone": "Your mobile number?",
+    "speakHelp": "Press the green button, say what is wrong, then press it again.",
+    "tapToSpeak": "Press to speak",
+    "listening": "Listening",
+    "start": "Start speaking",
+    "stop": "Stop",
+    "maxLength": "Up to {n} seconds",
+    "micDenied": "Microphone permission was refused. Turn it on in your phone settings.",
+    "tooShort": "Nothing was heard. Please try again.",
+    "unsupported": "This browser cannot record audio. Please type it below instead.",
+    "dictate": "Speak instead",
+    "readAloud": "Listen",
+    "next": "Next",
+    "skip": "Skip",
+    "send": "Send complaint",
+    "delete": "Delete",
+    "recorded": "Recorded complaint",
+    "spokenComplaint": "Complaint filed by voice — please listen to the recording.",
+    "playMissing": "The recording could not be found.",
+    "playUnsupported": "This recording cannot play on this device."
   }
 }
