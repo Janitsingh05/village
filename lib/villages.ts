@@ -462,13 +462,41 @@ export function unrecordedAccounts(village: Village, admins: VillageAdmin[]): st
  */
 export async function updateAdminProfile(
   villageId: string,
-  input: { adminName: string; adminRole: string; adminPhotoUrl?: string | null }
+  input: {
+    adminName: string;
+    adminRole: string;
+    adminPhone?: string;
+    adminPhotoUrl?: string | null;
+  }
 ): Promise<void> {
   const patch: Record<string, unknown> = {
     adminName: input.adminName.trim(),
     adminRole: input.adminRole.trim(),
   };
+  // The contact number is theirs to maintain now that it decides nothing. It
+  // was unreachable from anywhere in the app while it was also the credential,
+  // which meant a wrong number could only be fixed in the Firebase console.
+  if (input.adminPhone !== undefined) patch.adminPhone = tenDigits(input.adminPhone);
   if (input.adminPhotoUrl !== undefined) patch.adminPhotoUrl = input.adminPhotoUrl;
 
   await updateDoc(doc(col(), villageId), patch);
+}
+
+/**
+ * Blanks the public contact card, without touching anyone's access.
+ *
+ * The card and the access came apart when the UID became the identity, and this
+ * is the half that had no way to be cleared: a name and a number left over from
+ * testing, or from an admin who has since gone, kept appearing on villagers'
+ * phones as the person to ring. Revoking an account does not always cover it —
+ * a card can outlive the record that explains it — so it is its own action.
+ */
+export async function clearContactCard(villageId: string): Promise<void> {
+  await updateDoc(doc(col(), villageId), {
+    adminName: '',
+    adminRole: '',
+    adminPhone: '',
+    adminPhotoUrl: null,
+    adminVerifiedAt: null,
+  });
 }

@@ -19,6 +19,7 @@ export default function AdminProfilePage() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [phone, setPhone] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [dropPhoto, setDropPhoto] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,6 +33,7 @@ export default function AdminProfilePage() {
     if (!village.village) return;
     setName(village.village.adminName || '');
     setRole(village.village.adminRole || '');
+    setPhone(village.village.adminPhone || '');
   }, [village.village]);
 
   async function save() {
@@ -42,7 +44,12 @@ export default function AdminProfilePage() {
       if (photo) adminPhotoUrl = (await preparePhoto(photo)).thumb;
       else if (dropPhoto) adminPhotoUrl = null;
 
-      await updateAdminProfile(village.id, { adminName: name, adminRole: role, adminPhotoUrl });
+      await updateAdminProfile(village.id, {
+        adminName: name,
+        adminRole: role,
+        adminPhone: phone,
+        adminPhotoUrl,
+      });
       village.reload();
       setPhoto(null);
       setDropPhoto(false);
@@ -124,6 +131,23 @@ export default function AdminProfilePage() {
           </div>
 
           <div>
+            <label className="label" htmlFor="admin-phone">
+              {t('profile.phone')}
+            </label>
+            <input
+              id="admin-phone"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="98XXXXXXXX"
+              className="field"
+            />
+            <p className="mt-2 text-xs text-slate-500">{t('profile.phoneNote')}</p>
+          </div>
+
+          <div>
             <p className="label">{t('profile.photo')}</p>
             <PhotoUpload onChange={(files) => setPhoto(files[0] ?? null)} />
             <p className="mt-2 text-xs text-slate-500">{t('profile.photoNote')}</p>
@@ -154,6 +178,7 @@ export default function AdminProfilePage() {
                 setDropPhoto(false);
                 setName(current?.adminName || '');
                 setRole(current?.adminRole || '');
+                setPhone(current?.adminPhone || '');
               }}
               className="rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-bold text-slate-600"
             >

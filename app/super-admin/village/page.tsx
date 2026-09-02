@@ -14,6 +14,7 @@ import {
   revokeVillageAdmin,
   renewVillageAdmin,
   setVillageLgdCode,
+  clearContactCard,
   termState,
   unrecordedAccounts,
   type TermState,
@@ -127,6 +128,12 @@ export default function SuperVillagePage() {
 
       <LgdCard village={village} busy={busy} onSave={(code) => run(() => setVillageLgdCode(village.id, code))} />
 
+      <ContactCard
+        village={village}
+        busy={busy}
+        onClear={() => run(() => clearContactCard(village.id))}
+      />
+
       <section>
         <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
           {t('super.adminsHeading')}
@@ -235,6 +242,106 @@ function LgdCard({
         <Icon name="globe" className="h-4 w-4 shrink-0" />
         {t('super.openDirectory')}
       </a>
+    </section>
+  );
+}
+
+/* ---------------------------- the public card ---------------------------- */
+
+/**
+ * What villagers actually see, and the one button that takes it down.
+ *
+ * This card and the access underneath it are separate things now, and until
+ * this screen existed the public half could not be reached from anywhere in the
+ * app — a name and a phone number left over from testing kept showing up on
+ * villagers' phones as the person to ring, with the Firebase console the only
+ * way to stop it. Revoking an account does not always cover it either: a card
+ * can outlive the record that explains where it came from.
+ *
+ * Clearing it takes nobody's access away. It only stops the village being told
+ * to ring someone who is not there.
+ */
+function ContactCard({
+  village,
+  busy,
+  onClear,
+}: {
+  village: Village;
+  busy: boolean;
+  onClear: () => void;
+}) {
+  const { t } = useI18n();
+  const [confirming, setConfirming] = useState(false);
+  const empty = !village.adminName && !village.adminPhone && !village.adminPhotoUrl;
+
+  return (
+    <section className="rounded-3xl bg-white p-4 shadow-card">
+      <h2 className="text-sm font-bold text-slate-900">{t('super.contactCard')}</h2>
+      <p className="mt-1 text-xs leading-snug text-slate-500">{t('super.contactCardSub')}</p>
+
+      {empty ? (
+        <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          {t('super.contactEmpty')}
+        </p>
+      ) : (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+          {village.adminPhotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={village.adminPhotoUrl}
+              alt=""
+              className="h-12 w-12 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-slate-200 text-slate-500">
+              <Icon name="user" className="h-6 w-6" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-slate-900">
+              {village.adminName || t('common.anon')}
+            </p>
+            {village.adminRole && (
+              <p className="truncate text-xs text-slate-500">{village.adminRole}</p>
+            )}
+            {village.adminPhone && (
+              <p className="truncate font-mono text-xs text-slate-500">{village.adminPhone}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!empty &&
+        (confirming ? (
+          <div className="mt-3 rounded-2xl bg-red-50 p-3">
+            <p className="text-[13px] leading-snug text-red-800">{t('super.contactClearConfirm')}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setConfirming(false)}
+                className="rounded-xl border-2 border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-700"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  onClear();
+                  setConfirming(false);
+                }}
+                className="rounded-xl bg-red-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {t('super.contactClear')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            className="mt-3 w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600 transition active:scale-[0.99]"
+          >
+            {t('super.contactClear')}
+          </button>
+        ))}
     </section>
   );
 }

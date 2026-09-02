@@ -349,7 +349,12 @@
     "clearConfirm": "All {n} complaints in {village} will be gone for good — photos and audio included. They cannot be brought back.",
     "clearYes": "Yes, delete them",
     "clearing": "Deleting {done}/{total}…",
-    "cleared": "{n} complaints deleted."
+    "cleared": "{n} complaints deleted.",
+    "contactCard": "Public contact card",
+    "contactCardSub": "This is the name and number villagers see. Clearing it takes nobody’s access away.",
+    "contactEmpty": "No contact details are showing.",
+    "contactClear": "Clear contact card",
+    "contactClearConfirm": "Villagers will see no name or number. Sign-in and access are unaffected."
   },
   "setup": {
     "title": "Setup check",
@@ -442,7 +447,9 @@
     "saved": "✓ Saved",
     "failed": "Could not save",
     "cancel": "Cancel",
-    "removePhoto": "Remove photo"
+    "removePhoto": "Remove photo",
+    "phone": "Contact number",
+    "phoneNote": "Shown to villagers so they can reach you. You can leave it blank."
   },
   "village": {
     "yourSarpanch": "Your Sarpanch",
