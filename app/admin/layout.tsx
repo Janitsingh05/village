@@ -8,7 +8,7 @@ import AdminDrawer from '@/components/AdminDrawer';
 import LanguageToggle from '@/components/LanguageToggle';
 import Icon from '@/components/Icon';
 import { signOut, watchSession, type AdminSession } from '@/lib/auth';
-import { claimVillageForAdmin } from '@/lib/villages';
+import { claimVillageForAdmin, termEndFor, termState } from '@/lib/villages';
 import { setActiveVillage } from '@/lib/tenant';
 import { useVillage } from '@/lib/village-context';
 import { useI18n } from '@/lib/i18n';
@@ -79,6 +79,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-50">
         <p className="text-sm text-slate-500">{t('admin.checking')}</p>
+      </main>
+    );
+  }
+
+  // A Sarpanch's term ends; their access should not outlive it. Firestore rules
+  // cannot compare a clock against a per-person date without a server to run
+  // the sweep, so this is a stop rather than a lock — it turns away the real
+  // case, an ex-admin who still has the app on their phone, and the super admin
+  // sees the same expiry in their own list and can revoke properly.
+  if (termState(termEndFor(village.village, session.phone)) === 'expired') {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-slate-50 px-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-card">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
+            <Icon name="clock" className="h-7 w-7" />
+          </span>
+          <h1 className="mt-3 text-lg font-bold text-slate-900">{t('admin.termEnded')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">{t('admin.termEndedSub')}</p>
+          <button
+            onClick={async () => {
+              await signOut();
+              router.replace('/admin/login');
+            }}
+            className="btn-secondary mt-5"
+          >
+            {t('admin.logout')}
+          </button>
+        </div>
       </main>
     );
   }

@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import VillageSearch from '@/components/VillageSearch';
 import { createVillage } from '@/lib/villages';
+import { watchSession } from '@/lib/auth';
 import { STATES, districtsFor } from '@/lib/india';
 import { useI18n } from '@/lib/i18n';
+import { DEFAULT_TERM_YEARS, yearsFromNow } from '@/components/VerificationFields';
 import type { PlaceResult } from '@/lib/geocode';
 
 export default function NewVillagePage() {
@@ -18,10 +20,16 @@ export default function NewVillagePage() {
   const [state, setState] = useState('');
   const [district, setDistrict] = useState('');
   const [address, setAddress] = useState('');
+  const [lgdCode, setLgdCode] = useState('');
   const [adminName, setAdminName] = useState('');
+  const [adminRole, setAdminRole] = useState('');
   const [adminPhone, setAdminPhone] = useState('');
+  const [verifiedNote, setVerifiedNote] = useState('');
+  const [uid, setUid] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => watchSession((session) => setUid(session?.uid || '')), []);
 
   // A village confirmed against the map, and the escape hatch for one that is
   // not on it — plenty of small hamlets are unmapped, and onboarding must not
@@ -61,8 +69,15 @@ export default function NewVillagePage() {
         state,
         district,
         address,
+        lgdCode,
         adminName,
+        adminRole,
         adminPhone,
+        // Onboarding is a grant of access, so it records the same audit trail
+        // an approved request does: who vouched for this person, and until when.
+        verifiedBy: uid,
+        verifiedNote,
+        termEndsAt: yearsFromNow(DEFAULT_TERM_YEARS),
         location: picked ? { lat: picked.lat, lng: picked.lng } : null,
         mapPlace: picked?.display || '',
       });
@@ -205,6 +220,21 @@ export default function NewVillagePage() {
         </div>
 
         <div>
+          <label className="label" htmlFor="lgdCode">
+            {t('super.lgdCode')}
+          </label>
+          <p className="-mt-1 mb-2 text-xs text-slate-500">{t('super.lgdCodeSub')}</p>
+          <input
+            id="lgdCode"
+            inputMode="numeric"
+            value={lgdCode}
+            onChange={(e) => setLgdCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            placeholder="123456"
+            className="field"
+          />
+        </div>
+
+        <div>
           <label className="label" htmlFor="adminPhone">
             {t('super.fieldAdminPhone')} <span className="text-red-500">*</span>
           </label>
@@ -231,6 +261,34 @@ export default function NewVillagePage() {
             placeholder={t('super.fieldNamePlaceholder')}
             className="field"
           />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="adminRole">
+            {t('register.role')}
+          </label>
+          <input
+            id="adminRole"
+            value={adminRole}
+            onChange={(e) => setAdminRole(e.target.value)}
+            placeholder={t('register.rolePlaceholder')}
+            className="field"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="verifiedNote">
+            {t('verify.note')}
+          </label>
+          <textarea
+            id="verifiedNote"
+            rows={2}
+            value={verifiedNote}
+            onChange={(e) => setVerifiedNote(e.target.value.slice(0, 300))}
+            placeholder={t('verify.notePlaceholder')}
+            className="field resize-none"
+          />
+          <p className="mt-1.5 text-xs text-slate-500">{t('super.onboardNoteHelp')}</p>
         </div>
 
         {error && (

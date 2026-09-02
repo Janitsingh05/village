@@ -97,7 +97,7 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 | `/complaints` | Full public feed with status filters |
 | `/announcements` | Notices, tabbed All / Urgent |
 | `/my` | Complaints filed from this phone (no login — matched on the stored number) |
-| `/more` | Language, links, install hint |
+| `/more` | Grouped menu: services, Panchayat login, language, install, share |
 
 **Admin (Sarpanch / Secretary)**
 
@@ -110,14 +110,18 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 | `/admin/complaint/[id]` | Status change, note (0/200), proof photo |
 | `/admin/announcements` + `/new` | Notice list and composer (general / urgent, poster) |
 | `/admin/profile` | Session, language, sign out |
+| `/admin/register` | Apply to administer a village — photo ID and proof of post required |
 
 **Super admin**
 
 | Route | What |
 | --- | --- |
 | `/super-admin/login` | Mobile/OTP or email tabs |
-| `/super-admin/villages` | Every onboarded village |
+| `/super-admin/villages` | Every onboarded village, flagged when an admin needs re-checking |
 | `/super-admin/villages/new` | Onboard a village + its first admin |
+| `/super-admin/village?id=` | One village: LGD code, its admins, re-check, revoke, add directly |
+| `/super-admin/requests` | Admin applications with their proof, checklist and decision record |
+| `/super-admin/reports` | Residents saying the wrong person is shown as Sarpanch |
 
 ## Design decisions worth knowing
 
@@ -141,6 +145,68 @@ npx firebase deploy --only firestore:rules   # database rules, when they change
 - **Public phone numbers are masked** (`98xxxxxx10`) on the citizen-facing
   detail page; admins see the full number as a `tel:` link.
 
+## How an admin is verified
+
+The hard question this app has to answer is not "can this person log in" but
+"is this person really the Sarpanch of that village". OTP settles the first one
+and says nothing about the second, so everything below exists to narrow the gap.
+
+**Nobody can grant themselves access.** Registering files an application; only a
+super admin's approval puts a number on a village. That was true before, but the
+super admin used to see four fields the applicant had typed and an Approve
+button, which is not a check — it is a formality with a button.
+
+Four layers now sit behind an approval:
+
+1. **Evidence, required.** `/admin/register` will not submit without a photo ID
+   and proof of the post — an election certificate, or a letter on panchayat
+   letterhead. The rules enforce it too, so a hand-rolled write cannot skip it.
+   Thumbnails ride on the request; full images sit in its `media` subcollection,
+   readable by a super admin and nobody else.
+2. **The government's own record.** A village carries its LGD code, and the
+   review screen links straight into a search of the Local Government Directory
+   and the state panchayat portals, which publish elected representatives. There
+   is no usable public API — the check is a human reading a page — so the app
+   makes it one tap instead of ten minutes of hunting.
+3. **A written reason, required.** No decision goes through without the reviewer
+   recording how they checked (documents / directory / phone call / known
+   personally) and what they actually saw. It is stored on both the request and
+   the admin record, so "who approved this, and on what basis" always has an
+   answer.
+4. **The village itself.** The public Sarpanch card shows the date the name was
+   last verified and carries a "this is wrong" link. Reports are anonymous and
+   land in `/super-admin/reports`. Two thousand people who know each other will
+   spot a wrong name faster than any document check; they just need somewhere to
+   say so.
+
+**Access is reversible and dated.** Approvals carry a term — five years by
+default, because that is a Sarpanch's — and `/super-admin/village?id=…` lists
+every administrator with the evidence behind them, a Re-check button and a
+Revoke button. Revoking takes the number off `adminPhone`, `adminPhones` and
+`adminTermEnds`, then empties `adminUserIds` so every device has to re-prove
+itself from a number still on the list; everyone still approved re-links on
+their next page load, the revoked one cannot.
+
+**The straightest path skips registration entirely.** A super admin who already
+knows who should run a village can add them directly from the village screen.
+Nothing is self-declared, so there is nothing to spoof.
+
+### What this does not do
+
+Term expiry is **not** enforced by the Firestore rules. Comparing a clock
+against a per-person date needs a server to sweep for it, and this app has none
+by design. What happens instead: the admin app refuses to open on an expired
+term, and the super admin's list flags it — so the real case, an ex-Sarpanch
+with the app still on their phone, is turned away, while a determined attacker
+with the raw API is not. Revoking is the enforced action; expiry is the prompt
+to reach for it.
+
+Verification notes are also why admin records live at
+`villages/{id}/admins/{phone}` rather than on the village document. That
+document is world-readable — the transparency is the point — and a reviewer's
+notes about somebody's identity papers have no business being public. Only the
+phone numbers (already public) and the term dates stay on the village itself.
+
 ## Security model
 
 `firestore.rules` is the real enforcement — the admin layout's redirect is only
@@ -156,6 +222,7 @@ a UI convenience:
 
 ```
 app/            routes (App Router, all client components)
+app/super-admin village onboarding, admin requests, resident objections
 components/     ComplaintCard, StatusBadge, CategoryPicker, PhotoUpload, Navbar
 lib/            firebase, complaints (data layer), auth, config, imageCompress
 lib/tenant      resolves which village this session is looking at

@@ -26,6 +26,15 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // The ten-digit number Firebase verified for this session, or '' when the
+    // caller signed in by email and never proved a phone at all. Guarded because
+    // splitting a claim that is not there aborts the whole rule.
+    function verifiedPhone() {
+      return isSignedIn() && request.auth.token.phone_number is string
+        ? request.auth.token.phone_number.split('\+91')[1]
+        : '';
+    }
+
     function isSuperAdmin() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -41,9 +50,19 @@ service cloud.firestore {
       // Here they attach it themselves — but only their own UID, only appended,
       // only to the village that named their verified number, and touching no
       // other field.
+      //
+      // Both lists count. adminPhone is the number typed at onboarding;
+      // adminPhones holds everyone approved since. Checking only the first is
+      // what left approved admins signed in but unable to touch anything.
+      //
+      // This is also what makes revoking work: a number removed from both lists
+      // can no longer re-attach itself, so emptying adminUserIds locks out the
+      // revoked device while everyone still listed re-links on their next load.
       allow update: if isSignedIn()
         && onlyChanged(['adminUserIds'])
-        && request.auth.token.phone_number == '+91' + resource.data.adminPhone
+        && verifiedPhone() != ''
+        && (verifiedPhone() == resource.data.adminPhone
+            || verifiedPhone() in resource.data.adminPhones)
         && request.resource.data.adminUserIds ==
              resource.data.adminUserIds.concat([request.auth.uid]);
 
@@ -55,6 +74,18 @@ service cloud.firestore {
         && request.resource.data.adminRole.size() <= 60
         && (request.resource.data.adminPhotoUrl == null
             || request.resource.data.adminPhotoUrl.size() < 60000);
+
+      // Who administers this village, and the evidence a super admin recorded
+      // when granting it.
+      //
+      // Not readable by the public, unlike everything else under a village:
+      // these carry a reviewer's notes about somebody's identity documents.
+      // What the app needs without privilege — the numbers, and the dates their
+      // access ends — sits on the village document itself, where a date against
+      // an already-public number gives nothing away.
+      match /admins/{phone} {
+        allow read, write: if isSuperAdmin();
+      }
 
       match /complaints/{complaintId} {
         allow read: if true;
@@ -147,7 +178,49 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 80
         && request.resource.data.role.size() <= 60
         && request.resource.data.villageName.size() <= 120
-        && request.resource.data.decidedAt == null;
+        // A request without evidence is just a name, and a super admin has no
+        // way to check a name. Both thumbnails are required here; the full
+        // images go in the media subcollection below.
+        && request.resource.data.idProofUrl is string
+        && request.resource.data.idProofUrl.size() > 0
+        && request.resource.data.idProofUrl.size() < 60000
+        && request.resource.data.postProofUrl is string
+        && request.resource.data.postProofUrl.size() > 0
+        && request.resource.data.postProofUrl.size() < 60000
+        // Nobody gets to file their own approval.
+        && request.resource.data.decidedAt == null
+        && request.resource.data.decidedBy == ''
+        && request.resource.data.verifiedVia == null
+        && request.resource.data.termEndsAt == null;
+
+      // Photographed identity documents. Written by the applicant while filing,
+      // read by nobody but a super admin, and never editable afterwards — an
+      // approval must rest on the images that were actually reviewed.
+      match /media/{kind} {
+        allow read: if isSuperAdmin();
+        allow create: if kind in ['id-proof', 'post-proof']
+          && request.resource.data.data is string
+          && request.resource.data.data.size() < 900000;
+        allow update: if false;
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // Residents disputing who is shown as their village's Sarpanch.
+    //
+    // Anonymous on purpose: contradicting the person who runs your village
+    // should not require naming yourself. Same trust model as complaints —
+    // anyone may file, nobody but a super admin may read or resolve.
+    match /adminReports/{reportId} {
+      allow read, update, delete: if isSuperAdmin();
+
+      allow create: if request.resource.data.status == 'open'
+        && exists(/databases/$(database)/documents/villages/$(request.resource.data.villageId))
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.aboutName.size() <= 80
+        && request.resource.data.villageName.size() <= 120;
     }
 
     match /users/{userId} {
