@@ -22,6 +22,9 @@ type IconName =
   | 'grid'
   | 'list'
   | 'plus'
+  | 'shield'
+  | 'download'
+  | 'globe'
   | 'back';
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -114,6 +117,26 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l7.5 3v5.4c0 4.4-3 8.2-7.5 9.6-4.5-1.4-7.5-5.2-7.5-9.6V6z" />
+      <path d="M9 12l2.2 2.2L15.4 10" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v11" />
+      <path d="M8 11l4 4 4-4" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3.2 9h17.6M3.2 15h17.6" />
+      <path d="M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3z" />
     </>
   ),
   dots: (

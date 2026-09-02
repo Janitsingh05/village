@@ -11,6 +11,16 @@ export const metadata: Metadata = {
   description: 'गाँव की समस्या दर्ज करें और समाधान की स्थिति देखें। · Report and track village civic issues.',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, title: 'GaonConnect', statusBarStyle: 'default' },
+  // Generated from assets/brand/logo.png by `npm run logo`. The tab favicon is
+  // the cropped artwork, not the full badge — the wordmark is illegible at
+  // 16px and only muddies the mark.
+  icons: {
+    icon: [
+      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+  },
 };
 
 export const viewport: Viewport = {

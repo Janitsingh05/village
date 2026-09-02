@@ -1,31 +1,40 @@
-/** GaonConnect mark: a leaf sheltering a house. */
+/* eslint-disable @next/next/no-img-element */
+
+/**
+ * The GaonConnect logo, in the two shapes `scripts/logo-assets.mjs` produces.
+ *
+ * `mark` is a crop of the artwork alone and is what belongs anywhere the logo
+ * is small — a header, a drawer, a list row. `full` is the whole badge with its
+ * wordmark baked in, for launch and login screens where it is large enough to
+ * read; pair that one with `withWordmark` only when the layout needs the name
+ * as selectable text too.
+ */
 export default function Logo({
   className = 'h-9 w-9',
+  variant = 'mark',
   withWordmark = false,
   tagline,
   name = 'GaonConnect',
 }: {
   className?: string;
+  variant?: 'mark' | 'full';
   withWordmark?: boolean;
   tagline?: string;
   name?: string;
 }) {
+  const full = variant === 'full';
   const mark = (
-    <span className={'grid shrink-0 place-items-center rounded-xl bg-brand-600 ' + className}>
-      <svg viewBox="0 0 24 24" className="h-[62%] w-[62%]" aria-hidden="true">
-        <path
-          d="M20 4c0 7.5-4.2 11.5-9.5 11.5H8V13c0-5 4.4-9 12-9z"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="1.7"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M4 20v-5.2L8.5 11 13 14.8V20z"
-          fill="#fff"
-        />
-      </svg>
-    </span>
+    <img
+      src={full ? '/logo.png' : '/logo-mark.png'}
+      alt={withWordmark ? '' : name}
+      // The intrinsic size of the generated file, so the box is reserved
+      // before the bytes land instead of the header jumping on arrival.
+      width={full ? 384 : 192}
+      height={full ? 384 : 192}
+      // The badge already carries its own rounded silhouette, so only the
+      // cropped mark needs a radius of its own.
+      className={'shrink-0 object-contain ' + (full ? '' : 'rounded-xl ') + className}
+    />
   );
 
   if (!withWordmark) return mark;

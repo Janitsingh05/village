@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import LanguageToggle from './LanguageToggle';
+import Logo from './Logo';
 import Icon from './Icon';
 import { useI18n } from '@/lib/i18n';
 
@@ -46,7 +47,13 @@ export default function AppHeader({
         {title ? (
           <p className="min-w-0 flex-1 truncate text-lg font-bold text-slate-900">{title}</p>
         ) : (
-          <span className="flex-1" />
+          // Nothing to name the screen, so the header carries the brand
+          // instead of an empty gap. Not a link: the only screen without a
+          // title is the home screen, and a link back to itself is a dead tap
+          // target sitting where the title normally is.
+          <span className="min-w-0 flex-1">
+            <Logo className="h-8 w-8" withWordmark />
+          </span>
         )}
 
         {action}

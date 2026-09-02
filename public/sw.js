@@ -8,11 +8,20 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
-const PRECACHE = ['/', '/report/', '/announcements/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+const PRECACHE = [
+  '/',
+  '/report/',
+  '/announcements/',
+  '/manifest.json',
+  '/logo.png',
+  '/logo-mark.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -40,7 +49,12 @@ self.addEventListener('activate', (event) => {
 });
 
 function isBuildAsset(url) {
-  return url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/');
+  return (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/logo.png' ||
+    url.pathname === '/logo-mark.png'
+  );
 }
 
 self.addEventListener('fetch', (event) => {

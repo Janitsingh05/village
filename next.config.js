@@ -4,6 +4,10 @@ const path = require('path');
 const nextConfig = {
   reactStrictMode: true,
 
+  // The menu footer shows the running version; taking it from package.json at
+  // build time means there is no second number to remember to bump.
+  env: { NEXT_PUBLIC_APP_VERSION: require('./package.json').version },
+
   // Firebase Hosting's free tier serves static files only, and this app is
   // entirely client-rendered anyway — every page fetches its own data from
   // Firestore in the browser, so there is nothing for a server to do.

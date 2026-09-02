@@ -7,6 +7,9 @@ import type { Lang } from './i18n';
  */
 export const VILLAGE_ID = process.env.NEXT_PUBLIC_VILLAGE_ID || 'pilot-village';
 
+/** Injected from package.json by next.config.js. */
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
+
 export const VILLAGE = {
   id: VILLAGE_ID,
   nameHi: process.env.NEXT_PUBLIC_VILLAGE_NAME_HI || 'ग्राम पंचायत',
