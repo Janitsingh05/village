@@ -3,9 +3,10 @@
  *
  * Everything filed during testing — complaints, their photos and recordings,
  * announcements, admin applications, resident objections — plus the Sarpanch
- * name, role and photo shown on the public card. Access is left alone: admin
- * phone numbers, their records and the super admin all survive, because
- * clearing test content is not the same as locking people out.
+ * name, role and photo shown on the public card. Access is left alone unless
+ * --revoke-phone names a number, because clearing test content and locking
+ * someone out are different decisions and only one of them is reversible by
+ * simply filing another complaint.
  *
  * This deletes real documents and cannot be undone, so nothing happens without
  * both a service account key and --yes. Run it once with neither and it prints
@@ -16,10 +17,11 @@
  *   node scripts/reset-data.mjs --key ./serviceAccount.json --yes      # do it
  *
  * Options:
- *   --village <id>   just this village (default: every village)
- *   --keep-profile   leave the Sarpanch name and photo alone
- *   --all-tenants    also clear adminRequests and adminReports, which are not
- *                    scoped to a village
+ *   --village <id>          just this village (default: every village)
+ *   --keep-profile          leave the Sarpanch name and photo alone
+ *   --all-tenants           also clear adminRequests and adminReports, which
+ *                           are not scoped to a village
+ *   --revoke-phone <10 dig> take administrative access away from this number
  *
  * The key comes from the Firebase console: Project settings -> Service
  * accounts -> Generate new private key. .gitignore already covers it.
@@ -50,12 +52,79 @@ if (!args.key || !existsSync(args.key)) {
 }
 
 const { initializeApp, cert } = await import('firebase-admin/app');
-const { getFirestore } = await import('firebase-admin/firestore');
+const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
 
 initializeApp({ credential: cert(JSON.parse(readFileSync(args.key, 'utf8'))) });
 const db = getFirestore();
 
+const revoke = args['revoke-phone']
+  ? String(args['revoke-phone']).replace(/\D/g, '').slice(-10)
+  : null;
+
+if (args['revoke-phone'] && revoke.length !== 10) {
+  console.error('--revoke-phone needs ten digits, got: ' + args['revoke-phone']);
+  process.exit(1);
+}
+
 let removed = 0;
+
+const tenDigits = (v) => String(v || '').replace(/\D/g, '').slice(-10);
+
+/**
+ * Takes administrative access away from one number, everywhere it could come
+ * back from.
+ *
+ * The same three moves the super admin screen makes, for the same reasons: the
+ * number leaves adminPhone and adminPhones so it can never re-attach itself,
+ * its record and term date go, and adminUserIds is emptied outright — there is
+ * no map from a signed-in UID back to the phone behind it, so instead of
+ * guessing which one to drop, every device is made to prove itself again from
+ * a number still on the list. Anyone still approved re-links on their next page
+ * load; this one cannot.
+ */
+async function revokePhone(village, phone) {
+  const data = village.data();
+  const onPrimary = tenDigits(data.adminPhone) === phone;
+  const inList = (data.adminPhones || []).some((p) => tenDigits(p) === phone);
+  const record = await village.ref.collection('admins').doc(phone).get();
+
+  if (!onPrimary && !inList && !record.exists) return false;
+
+  console.log(
+    (apply ? 'revoked ' : 'would revoke ') +
+      '\t' +
+      phone +
+      (onPrimary ? ' (primary admin)' : '') +
+      (record.exists ? ' · ' + (record.data().name || 'unnamed') : '')
+  );
+
+  if (!apply) return onPrimary;
+
+  const patch = {
+    adminPhones: (data.adminPhones || []).filter((p) => tenDigits(p) !== phone),
+    adminUserIds: [],
+    ['adminTermEnds.' + phone]: FieldValue.delete(),
+  };
+
+  if (onPrimary) {
+    // The public card names whoever villagers should approach. Leaving a
+    // revoked name up there is worse than showing nobody.
+    Object.assign(patch, {
+      adminPhone: '',
+      adminName: '',
+      adminRole: '',
+      adminPhotoUrl: null,
+      adminVerifiedAt: null,
+    });
+  }
+
+  await village.ref.update(patch);
+  if (record.exists) await record.ref.delete();
+
+  // Tells the caller the public card is already blank, so it does not announce
+  // clearing a name that has just been cleared.
+  return onPrimary;
+}
 
 /**
  * Deletes a collection and everything under it.
@@ -92,7 +161,9 @@ for (const village of villages) {
   await purge(village.ref.collection('complaints'), 'complaints');
   await purge(village.ref.collection('announcements'), 'announcements');
 
-  if (!args['keep-profile']) {
+  const cardCleared = revoke ? await revokePhone(village, revoke) : false;
+
+  if (!args['keep-profile'] && !cardCleared) {
     const { adminName, adminRole, adminPhotoUrl } = village.data();
     if (adminName || adminRole || adminPhotoUrl) {
       console.log(

@@ -163,18 +163,30 @@ never seen. Run it whenever `firestore.rules` changes.
 
 ## Clearing test data
 
-`npm run reset-data` empties a project of the complaints, announcements,
+`scripts/reset-data.mjs` empties a project of the complaints, announcements,
 applications and objections left behind by testing, and blanks the Sarpanch name
-and photo on the public card. Admin phone numbers and their records survive:
-clearing test content is not the same as locking people out.
+and photo on the public card. Admin phone numbers survive unless one is named
+explicitly: clearing test content and locking someone out are different
+decisions, and only one of them is undone by filing another complaint.
 
 It deletes real documents and cannot be undone, so it does nothing without both
-a service account key and `--yes`:
+a service account key and `--yes`. Without `--yes` it prints exactly what it
+would do and touches nothing:
 
 ```bash
-node scripts/reset-data.mjs --key ./serviceAccount.json          # prints what would go
-node scripts/reset-data.mjs --key ./serviceAccount.json --yes    # deletes it
+# see what would happen
+node scripts/reset-data.mjs --key ./serviceAccount.json --all-tenants
+
+# a genuinely empty project, with one number's access removed as well
+node scripts/reset-data.mjs --key ./serviceAccount.json --all-tenants   --revoke-phone 98XXXXXXXX --yes
 ```
+
+`--revoke-phone` makes the same three moves the super admin screen does: the
+number leaves `adminPhone` and `adminPhones` so it can never re-attach itself,
+its record and term date go, and `adminUserIds` is emptied so every device has
+to prove itself again from a number still on the list. A single number can also
+be revoked from the UI at `/super-admin/village?id=…` without touching anything
+else — the script is for when the whole project should start over.
 
 Subcollections are walked explicitly, because Firestore does not delete them
 with their parent — the photos and recordings under a deleted complaint would
