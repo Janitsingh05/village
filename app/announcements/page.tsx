@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/Icon';
-import { subscribeToAnnouncements } from '@/lib/announcements';
+import { subscribeToAnnouncements, loadMoreAnnouncements } from '@/lib/announcements';
+import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { useI18n } from '@/lib/i18n';
 import { shortDate } from '@/lib/format';
 import type { Announcement } from '@/lib/types';
@@ -19,11 +20,15 @@ export default function AnnouncementsPage() {
   const [rows, setRows] = useState<Announcement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'all' | 'urgent'>('all');
+  const [more, setMore] = useState<Announcement[]>([]);
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     return subscribeToAnnouncements(
-      (list) => {
+      (list, next) => {
         setRows(list);
+        setCursor(next);
         setError(null);
       },
       (e) => setError(e.message)

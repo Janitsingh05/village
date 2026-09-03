@@ -40,8 +40,18 @@ export function dateTime(ms: number, lang: Lang): string {
 }
 
 /** 9876543210 -> 98xxxxxx10 for public display. */
+/**
+ * 9876543210 -> 98xxxxxx10, and never anything else.
+ *
+ * It used to return its input unchanged when there were fewer than ten digits,
+ * which put a raw number on a world-readable document the moment anything
+ * upstream let a short one through. A masking function that echoes its input on
+ * the unexpected path is not a masking function; validation belongs to the
+ * caller and this one masks whatever it is handed.
+ */
 export function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 10) return phone;
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length < 10) return 'x'.repeat(digits.length);
   return digits.slice(0, 2) + 'xxxxxx' + digits.slice(-2);
 }

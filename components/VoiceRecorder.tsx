@@ -137,11 +137,25 @@ export default function VoiceRecorder({
     dictation.current?.stop();
     dictation.current = null;
 
-    const clip = await recorder.current.stop().catch(() => null);
+    let clip: VoiceClip | null = null;
+    let tooLong = false;
+    try {
+      clip = await recorder.current.stop();
+    } catch (e) {
+      // A recording too big to store is not the same as one that never
+      // happened, and the difference matters: the first is fixed by speaking
+      // for less time, the second by speaking at all.
+      tooLong = e instanceof Error && e.message === 'VOICE_TOO_LARGE';
+    }
     recorder.current = null;
 
     setBusy(false);
     setLevels(IDLE);
+
+    if (tooLong) {
+      setError(t('voice.tooLong'));
+      return;
+    }
 
     if (!clip && !latestTranscript.current) {
       setError(t('voice.tooShort'));

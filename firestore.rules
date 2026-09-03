@@ -59,10 +59,16 @@ service cloud.firestore {
 
       // The admin maintaining their own details. Narrow on purpose: this must
       // not become a way to edit the village itself or grant anyone access.
+      // adminPhone belongs here because the profile screen edits it. It was
+      // added to the client and to updateAdminProfile and never to this list,
+      // so hasOnly() failed and *every* profile save was rejected — the one
+      // screen an admin uses to put their own name in front of the village.
       allow update: if isVillageAdmin(villageId)
-        && onlyChanged(['adminName', 'adminRole', 'adminPhotoUrl'])
+        && onlyChanged(['adminName', 'adminRole', 'adminPhone', 'adminPhotoUrl'])
         && request.resource.data.adminName.size() <= 80
         && request.resource.data.adminRole.size() <= 60
+        && (request.resource.data.adminPhone == ''
+            || request.resource.data.adminPhone.matches('^[6-9][0-9]{9}$'))
         && (request.resource.data.adminPhotoUrl == null
             || request.resource.data.adminPhotoUrl.size() < 60000);
 
@@ -127,7 +133,10 @@ service cloud.firestore {
               || request.resource.data.voiceNote == null
               || (request.resource.data.voiceNote.seconds is int
                   && request.resource.data.voiceNote.seconds > 0
-                  && request.resource.data.voiceNote.seconds <= 120))
+                  // MAX_VOICE_SECONDS in lib/voice-note.ts is 60. The rule
+                  // allows a little more so a clip that ran slightly long is
+                  // not thrown away over a rounding difference.
+                  && request.resource.data.voiceNote.seconds <= 75))
           // Resolved from the reporter's coordinates; bounded so it cannot be
           // used to smuggle arbitrary text onto a public document.
           && (!('address' in request.resource.data.location.keys())
@@ -187,7 +196,7 @@ service cloud.firestore {
           allow create: if isSignedIn()
             && ownsComplaint(villageId, complaintId)
             && request.resource.data.phone is string
-            && request.resource.data.phone.matches('[6-9][0-9]{9}');
+            && request.resource.data.phone.matches('^[6-9][0-9]{9}$');
           allow update: if false;
           allow delete: if isSuperAdmin();
         }
@@ -210,7 +219,7 @@ service cloud.firestore {
             && request.resource.data.data.size() < 900000
             && (
               isVillageAdmin(villageId)
-              || ((kind.matches('^photo-[0-2]$') || kind == 'voice')
+              || ((kind.matches('^photo-[0-2]$') || kind == 'voice' || kind == 'transcript')
                   && ownsComplaint(villageId, complaintId))
             );
           allow update: if isVillageAdmin(villageId);
@@ -233,7 +242,10 @@ service cloud.firestore {
           // The poster thumbnail rides inline on this document.
           && (!('photoUrl' in request.resource.data.keys())
               || request.resource.data.photoUrl == null
-              || request.resource.data.photoUrl.size() < 60000);
+              || request.resource.data.photoUrl.size() < 60000)
+          && request.resource.data.keys().hasOnly([
+               'villageId', 'kind', 'title', 'body', 'photoUrl', 'postedBy', 'createdAt'
+             ]);
         allow delete: if isVillageAdmin(villageId);
       }
     }
@@ -263,15 +275,23 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 80
         && request.resource.data.role.size() <= 60
         && request.resource.data.villageName.size() <= 120
+        && request.resource.data.keys().hasOnly([
+             'villageId', 'villageName', 'uid', 'email', 'name', 'phone', 'role',
+             'idProofUrl', 'postProofUrl', 'status', 'createdAt', 'decidedAt',
+             'decidedBy', 'verifiedVia', 'verifiedNote', 'termEndsAt'
+           ])
         // A request without evidence is just a name, and a super admin has no
         // way to check a name. Both thumbnails are required here; the full
         // images go in the media subcollection below.
-        && request.resource.data.idProofUrl is string
-        && request.resource.data.idProofUrl.size() > 0
-        && request.resource.data.idProofUrl.size() < 60000
-        && request.resource.data.postProofUrl is string
-        && request.resource.data.postProofUrl.size() > 0
-        && request.resource.data.postProofUrl.size() < 60000
+        // Thumbnails may be absent. An Aadhaar card or a letterhead is dense,
+        // text-heavy and the hardest thing to squeeze under the inline budget —
+        // requiring one here rejected exactly the applications that carried the
+        // best evidence. The full images in the media subcollection are what a
+        // super admin actually reviews; these only speed up the list.
+        && (request.resource.data.idProofUrl == null
+            || request.resource.data.idProofUrl.size() < 60000)
+        && (request.resource.data.postProofUrl == null
+            || request.resource.data.postProofUrl.size() < 60000)
         // Nobody gets to file their own approval.
         && request.resource.data.decidedAt == null
         && request.resource.data.decidedBy == ''
@@ -317,7 +337,13 @@ service cloud.firestore {
         && request.resource.data.reason.size() > 0
         && request.resource.data.reason.size() <= 500
         && request.resource.data.aboutName.size() <= 80
-        && request.resource.data.villageName.size() <= 120;
+        && request.resource.data.villageName.size() <= 120
+        // Anyone with an anonymous account can write one of these, so the shape
+        // has to be closed or arbitrary fields ride along on a document a super
+        // admin will open and read.
+        && request.resource.data.keys().hasOnly([
+             'villageId', 'villageName', 'aboutName', 'reason', 'status', 'createdAt'
+           ]);
     }
 
     match /users/{userId} {

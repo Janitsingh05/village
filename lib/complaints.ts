@@ -21,7 +21,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { MAX_PHOTOS, complaintRef } from './config';
+import { MAX_PHOTOS, DESC_MAX, complaintRef } from './config';
 import { activeVillageId } from './tenant';
 import { preparePhoto } from './imageCompress';
 import { ensureAnonymous, currentUid } from './auth';
@@ -39,6 +39,22 @@ function toMillis(v: unknown): number {
   if (v instanceof Timestamp) return v.toMillis();
   if (typeof v === 'number') return v;
   return Date.now();
+}
+
+/** A day either side is a clock problem; anything wider is a lie. */
+const TIMELINE_FUTURE_SLACK_MS = 86_400_000;
+
+function clampTimeline(raw: unknown, createdAt: number): StatusEvent[] {
+  if (!Array.isArray(raw)) return [];
+  const events: StatusEvent[] = raw.map((t: any) => ({ ...t, at: toMillis(t.at) }));
+  if (events.length === 0) return [];
+
+  // Whichever is earlier: the server's createdAt, or the first thing the
+  // document says about itself. For a synced complaint they agree; for one
+  // still in the outbox, only the second exists.
+  const floor = Math.min(createdAt, ...events.map((e) => e.at)) - 60_000;
+  const ceiling = Date.now() + TIMELINE_FUTURE_SLACK_MS;
+  return events.filter((e) => e.at >= floor && e.at <= ceiling);
 }
 
 function fromDoc(id: string, data: Record<string, any>): Complaint {
@@ -70,16 +86,19 @@ function fromDoc(id: string, data: Record<string, any>): Complaint {
     resolutionPhotoUrl: data.resolutionPhotoUrl ?? null,
     resolutionNote: data.resolutionNote ?? null,
     feedback: data.feedback ?? null,
-    // Clamped on read. serverTimestamp() is not allowed inside arrayUnion, so
-    // these are stamped by the admin's own device — and one phone with the wrong
-    // date writes a bogus entry into a public record and skews the village's
-    // average resolution time. Anything before the complaint existed or more
-    // than a day in the future is a clock, not a fact.
-    timeline: Array.isArray(data.timeline)
-      ? data.timeline
-          .map((t: any) => ({ ...t, at: toMillis(t.at) }))
-          .filter((t: StatusEvent) => t.at >= createdAt - 60_000 && t.at <= Date.now() + 86_400_000)
-      : [],
+    // Clamped on read, but only against a createdAt worth clamping against.
+    //
+    // serverTimestamp() is not allowed inside arrayUnion, so timeline entries
+    // are stamped by the writing device — and one phone with the wrong date
+    // writes a bogus entry into a public record and skews the village average.
+    // Hence the filter. But an unsynced document has no server createdAt yet,
+    // so toMillis falls back to *now*, and a complaint filed offline more than
+    // a minute ago had its own "pending" entry filtered out — leaving the
+    // reporter looking at an empty timeline on their own complaint.
+    //
+    // The floor is the earliest thing the document itself claims, so a pending
+    // write clamps against its own first entry rather than against the clock.
+    timeline: clampTimeline(data.timeline, createdAt),
     createdAt,
     updatedAt: toMillis(data.updatedAt),
   };
@@ -182,13 +201,15 @@ export async function getComplaintPhotos(
 export const FEED_PAGE = 40;
 
 /**
- * How long to wait for the server before treating a write as queued.
+ * Whether this browser believes it has no connection at all.
  *
- * Long enough that a working connection almost always settles inside it — so
- * genuine errors still reach the user as errors — and short enough that someone
- * with no signal is not left watching a spinner.
+ * `navigator.onLine` is a weak signal — it says the radio is on, not that the
+ * internet is reachable — which is exactly why it is only ever used to answer
+ * "should we stop waiting", never "did this succeed".
  */
-const LOCAL_WRITE_HANDOFF_MS = 4000;
+function definitelyOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
 
 export interface FeedOptions {
   villageId?: string;
@@ -396,6 +417,16 @@ export async function createComplaint(
       updatedAt: serverTimestamp(),
     });
 
+    // Everything dictation heard, when it heard more than the description can
+    // hold. Best-effort: the capped description and the audio both already
+    // carry the complaint.
+    if (input.transcript && input.transcript.length > DESC_MAX) {
+      await setDoc(mediaDoc(villageId, docRef.id, 'transcript'), {
+        data: input.transcript.slice(0, 4000),
+        createdAt: serverTimestamp(),
+      }).catch(() => undefined);
+    }
+
     if (input.voice) {
       await setDoc(mediaDoc(villageId, docRef.id, 'voice'), {
         data: input.voice.dataUrl,
@@ -431,33 +462,28 @@ export async function createComplaint(
     );
   })();
 
-  // Hand back the reference on the local write, not the server's reply.
+  // Offline: hand back the reference now. Online: wait for the real answer.
   //
-  // A Firestore write promise resolves on backend acknowledgement. Offline, the
-  // document lands in IndexedDB immediately and that promise simply never
-  // settles — so awaiting it left the button spinning forever, no error, no
-  // receipt, on exactly the connection this app was built for. The natural
-  // response is to press submit again.
+  // A Firestore write promise resolves on backend acknowledgement, so with no
+  // network it never settles and awaiting it left the button spinning forever.
+  // The first attempt at this raced a four-second timer — which fixed the
+  // spinner and introduced something worse: on rural 3G four seconds is normal,
+  // so a write the rules were about to *reject* still produced a reference
+  // number. A villager would write that number down, take it to the Panchayat,
+  // and there would be nothing there.
   //
-  // Racing a short timer keeps both behaviours: online, the write settles well
-  // inside it and a real permission error still surfaces as an error; offline,
-  // the timer wins and the reporter gets their reference with the receipt
-  // saying it will send when the network returns.
-  let queued = false;
-  await Promise.race([
-    issued,
-    new Promise<void>((resolve) =>
-      setTimeout(() => {
-        queued = true;
-        resolve();
-      }, LOCAL_WRITE_HANDOFF_MS)
-    ),
-  ]);
+  // A timer cannot tell those apart. `navigator.onLine === false` can: it is
+  // the one state where waiting is pointless because there is nothing to wait
+  // for. Everywhere else the promise is allowed to settle, and a rejection
+  // reaches the caller as a rejection.
+  if (definitelyOffline()) {
+    // Keep it syncing, and swallow a later rejection so it does not surface as
+    // an unhandled promise long after the reporter has moved on.
+    issued.catch(() => undefined);
+    return docRef.id;
+  }
 
-  // Still in flight. Keep it syncing, and swallow a later rejection so it does
-  // not surface as an unhandled promise long after the user has moved on.
-  if (queued) issued.catch(() => undefined);
-
+  await issued;
   return docRef.id;
 }
 
@@ -483,7 +509,7 @@ export async function getVoiceNote(
 /* -------------------------------- deleting -------------------------------- */
 
 /** Every media key a complaint can carry, for a delete that leaves nothing. */
-const MEDIA_KINDS = ['photo-0', 'photo-1', 'photo-2', 'voice', 'proof'];
+const MEDIA_KINDS = ['photo-0', 'photo-1', 'photo-2', 'voice', 'transcript', 'proof'];
 
 /**
  * Removes a complaint and everything underneath it.
@@ -527,6 +553,10 @@ export async function deleteAllComplaints(
   villageId = activeVillageId(),
   onProgress?: (done: number, total: number) => void
 ): Promise<number> {
+  // Counted once, so the progress line counts up to a fixed number instead of
+  // moving its own goalposts every page.
+  const total = (await getCountFromServer(complaintsCol(villageId))).data().count;
+
   // Paged, because the only thing wanted here is the ids and the web SDK has
   // no select() — reading the collection in one go would pull every base64
   // thumbnail down first, which for 500 complaints is the 18 MB this file
@@ -537,7 +567,7 @@ export async function deleteAllComplaints(
     if (snap.empty) break;
     for (const row of snap.docs) {
       await deleteComplaint(row.id, villageId);
-      onProgress?.(++done, done + snap.size - 1);
+      onProgress?.(++done, total);
     }
   }
 

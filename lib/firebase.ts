@@ -25,6 +25,17 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId
 );
 
+/**
+ * Keys the app does not use.
+ *
+ * storageBucket and messagingSenderId are part of the config Firebase hands
+ * you, and nothing here reads either — Cloud Storage is deliberately unused and
+ * there is no push messaging. They were listed as missing anyway, so the setup
+ * screen showed red entries for values that change nothing, next to the ones
+ * that matter.
+ */
+const OPTIONAL_KEYS = ['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'];
+
 export function missingFirebaseKeys(): string[] {
   return Object.entries({
     NEXT_PUBLIC_FIREBASE_API_KEY: firebaseConfig.apiKey,
@@ -34,7 +45,7 @@ export function missingFirebaseKeys(): string[] {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: firebaseConfig.messagingSenderId,
     NEXT_PUBLIC_FIREBASE_APP_ID: firebaseConfig.appId,
   })
-    .filter(([, v]) => !v)
+    .filter(([k, v]) => !v && !OPTIONAL_KEYS.includes(k))
     .map(([k]) => k);
 }
 

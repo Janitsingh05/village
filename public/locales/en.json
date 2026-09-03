@@ -7,7 +7,6 @@
     "days": "days",
     "none": "—",
     "optional": "optional",
-    "required": "required",
     "or": "or",
     "save": "Save",
     "share": "Share",
@@ -45,7 +44,6 @@
     "statOpen": "Open",
     "statResolved": "Resolved",
     "feedTitle": "Public feed",
-    "adminLogin": "Panchayat login →",
     "filterAll": "All",
     "loadError": "Could not load complaints: {msg}",
     "emptyTitle": "No complaints yet",
@@ -150,11 +148,9 @@
     "queuedBody": "No internet right now. It will reach the Panchayat on its own once the network is back — no need to send it again."
   },
   "admin": {
-    "dashboardTitle": "Panchayat dashboard",
     "publicPage": "Public page",
     "logout": "Log out",
     "checking": "Checking…",
-    "loginTitle": "Panchayat login",
     "loginSub": "Admin sign in",
     "email": "Email",
     "password": "Password",
@@ -175,13 +171,11 @@
     "filterDate30": "Last 30 days",
     "count": "{n} complaints",
     "emptyFilter": "No complaints match this filter.",
-    "statusChangeFailed": "Could not change the status",
     "ward": "Ward",
     "name": "Name",
     "phone": "Mobile",
     "filed": "Filed",
     "actionsSoFar": "Actions so far",
-    "updateStatus": "Update status",
     "note": "Note for the resident",
     "notePlaceholder": "e.g. Sanitation staff will be sent tomorrow morning.",
     "proof": "Proof of resolution",
@@ -189,7 +183,6 @@
     "saving": "Saving…",
     "saved": "✓ Saved",
     "saveFailed": "Could not save",
-    "currentProof": "Current resolution photo",
     "notFound": "This complaint was not found",
     "loginHeading": "Panchayat login",
     "loginNote": "Sign in with your email and password",
@@ -223,7 +216,8 @@
     "termEndedSub": "The end date on this account has passed. Contact the super admin to have it renewed.",
     "badEmail": "That does not look like an email address.",
     "offline": "No connection. Check your internet and try again.",
-    "newHereSub": "Register first. Once a super admin approves you, sign in with the same email."
+    "newHereSub": "Register first. Once a super admin approves you, sign in with the same email.",
+    "lookupFailed": "Could not work out which village this account runs — check your connection and reopen the page. Do not update anything until it loads."
   },
   "nav": {
     "home": "Home",
@@ -248,7 +242,6 @@
     "post": "Post announcement",
     "posting": "Posting…",
     "failed": "Could not post the announcement",
-    "manage": "Announcements",
     "tabAll": "All announcements",
     "tabUrgent": "Urgent notices",
     "kindGeneral": "General notice",
@@ -275,7 +268,6 @@
     "aboutSub": "Village problems, straight to the Panchayat",
     "install": "Install as an app",
     "installSub": "Choose \"Add to Home Screen\" from your browser menu",
-    "subtitle": "All services and settings",
     "sectionServices": "Services",
     "sectionPanchayat": "Panchayat",
     "sectionApp": "App & settings",
@@ -367,7 +359,9 @@
     "contactCardSub": "This is the name and number villagers see. Clearing it takes nobody’s access away.",
     "contactEmpty": "No contact details are showing.",
     "contactClear": "Clear contact card",
-    "contactClearConfirm": "Villagers will see no name or number. Sign-in and access are unaffected."
+    "contactClearConfirm": "Villagers will see no name or number. Sign-in and access are unaffected.",
+    "notSuperAdmin": "This account is not a super admin",
+    "notSuperAdminSub": "You are signed in, but this account has no system-management permission. Sign in with the right one."
   },
   "setup": {
     "title": "Setup check",
@@ -445,7 +439,9 @@
     "passwordNote": "At least {n} characters. Remember it.",
     "phoneNoteNew": "Shown to villagers so they can reach you.",
     "emailTaken": "An account already uses this email. Sign in, or use another one.",
-    "weakPassword": "That password is too short. Make it a bit longer."
+    "weakPassword": "That password is too short. Make it a bit longer.",
+    "refused": "This application was not accepted. Take a clearer, smaller photo of the document and try again.",
+    "proofTooLarge": "The document photo is too large. Take it closer and in better light."
   },
   "profile": {
     "edit": "Edit profile",
@@ -463,7 +459,8 @@
     "cancel": "Cancel",
     "removePhoto": "Remove photo",
     "phone": "Contact number",
-    "phoneNote": "Shown to villagers so they can reach you. You can leave it blank."
+    "phoneNote": "Shown to villagers so they can reach you. You can leave it blank.",
+    "photoTooLarge": "That photo is too large, choose another."
   },
   "village": {
     "yourSarpanch": "Your Sarpanch",
@@ -550,6 +547,7 @@
     "heard": "You said",
     "noTextNow": "Not catching the words — that is fine, your voice is being recorded.",
     "noTextHere": "This browser cannot turn speech into text — your voice still reaches them.",
-    "sendFailed": "The complaint could not be sent. Check your connection and try again."
+    "sendFailed": "The complaint could not be sent. Check your connection and try again.",
+    "tooLong": "That recording is too long. Say it a little shorter and try again."
   }
 }

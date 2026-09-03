@@ -86,7 +86,11 @@ export default function AdminRegisterPage() {
               ? t('admin.badEmail')
               : code === 'ALREADY_REQUESTED'
                 ? t('register.already')
-                : t('register.failed')
+                : code === 'REFUSED'
+                  ? t('register.refused')
+                  : code === 'PHOTO_TOO_LARGE' || code === 'UNSUPPORTED_FORMAT'
+                    ? t('register.proofTooLarge')
+                    : t('register.failed')
       );
       setBusy(false);
     }

@@ -8,13 +8,19 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
 const PRECACHE = [
   '/',
   '/report/',
+  // The one flow that has to work with no signal, and the one that was left
+  // out: someone who cannot type is not going to fall back to the written form.
+  '/report/voice/',
+  '/complaints/',
+  '/my/',
+  '/more/',
   '/announcements/',
   '/manifest.json',
   // Hindi and English ship inside the bundle too; these copies are what a
@@ -124,11 +130,33 @@ self.addEventListener('fetch', (event) => {
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
-            caches.open(PAGE_CACHE).then((c) => c.put(request, copy));
+            caches.open(PAGE_CACHE).then((c) => {
+              // Keyed by pathname, ignoring the query string. Every
+              // /complaint/?id=… was getting its own entry, so a villager who
+              // opened forty complaints carried forty copies of one page around
+              // in a cache that was never trimmed.
+              c.put(new Request(new URL(request.url).pathname), copy);
+              void trimPageCache(c);
+            });
           }
           return res;
         })
-        .catch(() => caches.match(request).then((hit) => hit || caches.match('/')))
+        .catch(() =>
+          caches
+            .match(new Request(new URL(request.url).pathname))
+            .then((hit) => hit || caches.match('/'))
+        )
     );
   }
 });
+
+/** Pages worth keeping offline. Beyond this the oldest go. */
+const PAGE_CACHE_MAX = 30;
+
+async function trimPageCache(cache) {
+  const keys = await cache.keys();
+  // keys() returns insertion order, so the front of the list is the oldest.
+  for (const key of keys.slice(0, Math.max(0, keys.length - PAGE_CACHE_MAX))) {
+    await cache.delete(key);
+  }
+}

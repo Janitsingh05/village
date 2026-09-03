@@ -17,6 +17,16 @@ export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'https://village-psi-eight.vercel.app';
 
 /**
+ * How long a complaint's description may be, everywhere.
+ *
+ * It lived in app/report/page.tsx and the voice flow never saw it, so a spoken
+ * complaint went to Firestore uncapped against a rule that stops at 200 — and
+ * thirty seconds of speech is three hundred characters. The flow built for
+ * people who cannot type was failing for the people who used it most.
+ */
+export const DESC_MAX = 200;
+
+/**
  * An Indian mobile number: ten digits starting 6, 7, 8 or 9.
  *
  * The form used to accept any ten digits, so 0000000000 went through, and the

@@ -9,7 +9,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import DictateButton from '@/components/DictateButton';
 import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
-import { MAX_PHOTOS, wardOptions, isValidPhone } from '@/lib/config';
+import { MAX_PHOTOS, DESC_MAX, wardOptions, isValidPhone } from '@/lib/config';
 import { useI18n } from '@/lib/i18n';
 import { reverseGeocode, type Place } from '@/lib/geocode';
 import { rememberMe } from '@/lib/me';
@@ -17,8 +17,6 @@ import { saveDraft, loadDraft, clearDraft } from '@/lib/draft';
 import { readReportError, REPORT_ERROR_KEY } from '@/lib/report-errors';
 import { complaintHref } from '@/lib/route-id';
 import type { CategoryId } from '@/lib/types';
-
-const DESC_MAX = 200;
 
 export default function ReportPage() {
   const router = useRouter();

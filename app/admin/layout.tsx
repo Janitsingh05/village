@@ -15,7 +15,10 @@ import { useI18n } from '@/lib/i18n';
 import { isOneOf } from '@/lib/route-match';
 
 /** Routes inside /admin that must stay reachable while signed out. */
-const PUBLIC_ROUTES = ['/admin/login', '/admin/register'];
+// /admin/setup is here because it diagnoses a project that is not configured
+// yet — and it used to sit behind the sign-in gate, which needs the very
+// configuration it exists to check. Read-only, so nothing is exposed by it.
+const PUBLIC_ROUTES = ['/admin/login', '/admin/register', '/admin/setup'];
 
 /**
  * Client-side guard for the admin area. Firestore rules are the real
@@ -31,6 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [session, setSession] = useState<AdminSession | null | undefined>(undefined);
   const [unclaimed, setUnclaimed] = useState(false);
+  const [lookupFailed, setLookupFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => watchSession(setSession), []);
@@ -43,19 +47,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!session) return;
-    // Resolve once per signed-in account; re-running on every render would loop
-    // against the village reload below.
+    // Resolve once per signed-in account, but only mark it resolved once it
+    // actually succeeded. Setting the ref before the await meant a single
+    // dropped request was never retried — and the catch below used to clear
+    // `unclaimed`, so the admin was left pointed at whatever village happened
+    // to be in localStorage, editing another village's complaints with nothing
+    // on screen suggesting anything had gone wrong.
     if (resolvedFor.current === session.uid) return;
-    resolvedFor.current = session.uid;
 
     let alive = true;
     villageForUser(session.uid)
       .then((villageId) => {
         if (!alive) return;
+        resolvedFor.current = session.uid;
         if (villageId) {
           setActiveVillage(villageId);
           reloadVillage();
           setUnclaimed(false);
+          setLookupFailed(false);
         } else {
           // Signed in, but no village lists this account — a registration
           // waiting on approval, or one that was refused. Say so rather than
@@ -63,7 +72,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setUnclaimed(true);
         }
       })
-      .catch(() => alive && setUnclaimed(false));
+      .catch(() => {
+        // Left unresolved on purpose, so the next mount tries again.
+        if (alive) setLookupFailed(true);
+      });
     return () => {
       alive = false;
     };
@@ -137,6 +149,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
         </div>
       </header>
+
+      {lookupFailed && (
+        <p className="mx-auto max-w-5xl px-4 pt-4">
+          <span className="block rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            {t('admin.lookupFailed')}
+          </span>
+        </p>
+      )}
 
       {unclaimed && (
         <p className="mx-auto max-w-5xl px-4 pt-4">

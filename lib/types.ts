@@ -84,6 +84,14 @@ export interface NewComplaintInput {
   photoFiles: File[];
   /** A recorded complaint, from the spoken flow. */
   voice?: { dataUrl: string; mimeType: string; seconds: number } | null;
+  /**
+   * What dictation heard, in full.
+   *
+   * The description on the complaint is capped at DESC_MAX like any other, so
+   * this holds the rest rather than throwing away the end of what somebody
+   * said. Stored at media/transcript, fetched only on the detail screen.
+   */
+  transcript?: string;
   ward: string;
   lat?: number;
   lng?: number;

@@ -9,7 +9,7 @@ import CameraCapture from '@/components/CameraCapture';
 import VoiceRecorder, { type VoiceResult } from '@/components/VoiceRecorder';
 import { createComplaint } from '@/lib/complaints';
 import { readReportError, REPORT_ERROR_KEY } from '@/lib/report-errors';
-import { CATEGORIES, isValidPhone } from '@/lib/config';
+import { CATEGORIES, DESC_MAX, isValidPhone } from '@/lib/config';
 import { guessCategory } from '@/lib/category-guess';
 import { canSpeak, speak, stopSpeaking, warmVoices } from '@/lib/speech';
 import { reverseGeocode, type Place } from '@/lib/geocode';
@@ -111,10 +111,12 @@ export default function VoiceReportPage() {
     try {
       const id = await createComplaint({
         category: category ?? 'other',
-        // A recording with no transcript still needs something on the
-        // complaint document, because the feed and the rules both expect a
-        // description. Say plainly that it is spoken rather than inventing one.
-        description: transcript.trim() || t('voice.spokenComplaint'),
+        // Trimmed to the same cap the written form uses. The full transcript
+        // is not lost — it goes in its own document beside the audio, because
+        // truncating what somebody said is a worse answer than storing it
+        // somewhere the feed does not have to load.
+        description: transcript.trim().slice(0, DESC_MAX) || t('voice.spokenComplaint'),
+        transcript: transcript.trim() || undefined,
         photoFiles: photo ? [photo] : [],
         voice,
         ward: coords ? 'GPS' : '',

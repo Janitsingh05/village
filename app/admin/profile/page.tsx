@@ -41,8 +41,15 @@ export default function AdminProfilePage() {
     setError(null);
     try {
       let adminPhotoUrl: string | null | undefined;
-      if (photo) adminPhotoUrl = (await preparePhoto(photo)).thumb;
-      else if (dropPhoto) adminPhotoUrl = null;
+      if (photo) {
+        adminPhotoUrl = (await preparePhoto(photo)).thumb;
+        // This portrait is the whole point of the card villagers look at. A
+        // photo that would not fit used to be dropped in silence, so the save
+        // reported success and the card stayed empty.
+        if (!adminPhotoUrl) throw new Error('PHOTO_TOO_LARGE');
+      } else if (dropPhoto) {
+        adminPhotoUrl = null;
+      }
 
       await updateAdminProfile(village.id, {
         adminName: name,
@@ -56,8 +63,9 @@ export default function AdminProfilePage() {
       setEditing(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError(t('profile.failed'));
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      setError(t(code === 'PHOTO_TOO_LARGE' ? 'profile.photoTooLarge' : 'profile.failed'));
     } finally {
       setBusy(false);
     }

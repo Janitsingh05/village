@@ -81,7 +81,20 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
     shrink(file, THUMB_MAX_BYTES / (1024 * 1024), 200, 0.55),
   ]);
 
-  const [full, thumb] = await Promise.all([toDataUrl(fullBlob), toDataUrl(thumbBlob)]);
+  const [full, firstThumb] = await Promise.all([toDataUrl(fullBlob), toDataUrl(thumbBlob)]);
+
+  // Try harder before giving up. maxSizeMB is a target the compressor aims at,
+  // not a promise, and it misses most often on exactly the images that matter
+  // here — a photographed Aadhaar card or a letterhead, dense with small text,
+  // which JPEG cannot compress the way it compresses a photo of a drain.
+  let thumb = firstThumb;
+  if (thumb.length >= MAX_THUMB_CHARS) {
+    try {
+      thumb = await toDataUrl(await shrink(file, THUMB_MAX_BYTES / (1024 * 1024), 140, 0.4));
+    } catch {
+      /* keep the first attempt and let the caller decide */
+    }
+  }
 
   if (full.length > MAX_STORED_CHARS) {
     // Only reachable with a pathological image; better than a write that

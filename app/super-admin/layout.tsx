@@ -18,25 +18,61 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   const [allowed, setAllowed] = useState<boolean | undefined>(undefined);
 
+  const [signedIn, setSignedIn] = useState(false);
+
   useEffect(() => {
+    // Both cleanups, composed. The effect used to return only watchSession's
+    // unsubscribe, so `alive = false` never ran and a late role check could
+    // still call setState after unmount.
     let alive = true;
-    return watchSession(async (session: AdminSession | null) => {
+    const stop = watchSession(async (session: AdminSession | null) => {
       const ok = session ? await isSuperAdmin(session.uid) : false;
-      if (alive) setAllowed(ok);
+      if (!alive) return;
+      setSignedIn(Boolean(session));
+      setAllowed(ok);
     });
+    return () => {
+      alive = false;
+      stop();
+    };
   }, []);
 
   useEffect(() => {
-    if (allowed === false && !isLogin) router.replace('/super-admin/login');
+    // Only bounce someone who is not signed in at all. A signed-in account
+    // without the role used to be sent to a login page it was already logged
+    // into — no message, no way out, just the same screen again.
+    if (allowed === false && !signedIn && !isLogin) router.replace('/super-admin/login');
     if (allowed && isLogin) router.replace('/super-admin/villages');
-  }, [allowed, isLogin, router]);
+  }, [allowed, signedIn, isLogin, router]);
 
   if (isLogin) return <>{children}</>;
 
-  if (allowed === undefined || !allowed) {
+  if (allowed === undefined) {
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-50">
         <p className="text-sm text-slate-500">{t('admin.checking')}</p>
+      </main>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-slate-50 px-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-card">
+          <h1 className="text-lg font-bold text-slate-900">{t('super.notSuperAdmin')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            {t('super.notSuperAdminSub')}
+          </p>
+          <button
+            onClick={async () => {
+              await signOut();
+              router.replace('/super-admin/login');
+            }}
+            className="btn-secondary mt-5"
+          >
+            {t('admin.logout')}
+          </button>
+        </div>
       </main>
     );
   }

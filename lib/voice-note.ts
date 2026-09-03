@@ -26,6 +26,9 @@ export const MAX_VOICE_SECONDS = 60;
 /** Matches the cap the Firestore rules enforce on a media document. */
 const MAX_STORED_CHARS = 900_000;
 
+/** The same cap before base64, which adds about a third. */
+const MAX_STORED_BYTES = Math.floor((MAX_STORED_CHARS * 3) / 4);
+
 const BITS_PER_SECOND = 24_000;
 
 export function canRecord(): boolean {
@@ -189,12 +192,18 @@ export async function startRecording(options: {
       // Under a second is a mis-tap, not a complaint.
       if (!blob.size || seconds < 1) return null;
 
+      // Checked on the blob, before base64 inflates it by a third.
+      //
+      // iOS Safari records MP4/AAC and ignores audioBitsPerSecond, so a full
+      // minute can land well over the document limit. This used to return null
+      // and say nothing — and since Safari has no dictation either, the result
+      // was a complaint with a placeholder description, no audio and no
+      // transcript, filed by someone who believed they had just spoken it.
+      if (blob.size > MAX_STORED_BYTES) throw new Error('VOICE_TOO_LARGE');
+
       const dataUrl = await toDataUrl(blob);
-      if (dataUrl.length > MAX_STORED_CHARS) {
-        // Only reachable if a browser ignored the bitrate hint. Losing the clip
-        // is better than a write that fails after the upload wait.
-        return null;
-      }
+      if (dataUrl.length > MAX_STORED_CHARS) throw new Error('VOICE_TOO_LARGE');
+
       return { dataUrl, mimeType: blob.type, seconds, bytes: blob.size };
     },
 

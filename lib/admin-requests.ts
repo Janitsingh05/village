@@ -135,7 +135,14 @@ export async function createAdminRequest(input: {
     );
   } catch (e) {
     const code = (e as { code?: string }).code || '';
-    if (code === 'permission-denied') throw new Error('ALREADY_REQUESTED');
+    // permission-denied does not mean "already applied". It used to be reported
+    // that way for every rule failure, so an applicant whose ID photo was too
+    // large to shrink was told they had already applied — and went away.
+    // Only a document that actually exists is a duplicate.
+    if (code === 'permission-denied') {
+      const existing = await getDoc(doc(col(), id)).catch(() => null);
+      throw new Error(existing?.exists() ? 'ALREADY_REQUESTED' : 'REFUSED');
+    }
     throw e;
   }
 

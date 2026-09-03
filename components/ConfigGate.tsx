@@ -37,8 +37,13 @@ export default function ConfigGate({ children }: { children: React.ReactNode }) 
 
         <ol className="mt-5 space-y-2 text-sm text-slate-700">
           <li>
-            <strong>1.</strong> Create a project at console.firebase.google.com, then enable
-            Firestore, Storage and Phone authentication.
+            <strong>1.</strong> Create a project at console.firebase.google.com, then enable{' '}
+            <strong>Firestore</strong>, and under Authentication → Sign-in method both{' '}
+            <strong>Email/Password</strong> and <strong>Anonymous</strong>.
+          </li>
+          <li className="rounded-xl bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">
+            Anonymous is not optional. Citizens never see a login screen, so the app signs them
+            in invisibly — with it switched off, every complaint in the village is refused.
           </li>
           <li>
             <strong>2.</strong> Project settings → Your apps → Web app → copy the config.
