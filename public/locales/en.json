@@ -549,5 +549,10 @@
     "noTextHere": "This browser cannot turn speech into text — your voice still reaches them.",
     "sendFailed": "The complaint could not be sent. Check your connection and try again.",
     "tooLong": "That recording is too long. Say it a little shorter and try again."
+  },
+  "map": {
+    "loading": "Opening the map…",
+    "dragHint": "Drag the pin to your spot",
+    "unavailable": "The map could not open — use GPS or pick a ward"
   }
 }

@@ -8,7 +8,7 @@
  *   - Firebase traffic is never touched; Firestore has its own offline layer
  *     and caching auth or query responses here would be actively wrong
  */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const STATIC_CACHE = 'gc-static-' + VERSION;
 const PAGE_CACHE = 'gc-pages-' + VERSION;
 
@@ -78,7 +78,9 @@ function isBuildAsset(url) {
  * the background, and the next open has the correction.
  */
 function isLocale(url) {
-  return url.pathname.startsWith('/locales/');
+  // Pincode shards belong here for the same reason: no hash in the filename,
+  // so cache-first would freeze them, and India Post reissues the directory.
+  return url.pathname.startsWith('/locales/') || url.pathname.startsWith('/pincodes/');
 }
 
 self.addEventListener('fetch', (event) => {
