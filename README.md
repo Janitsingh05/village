@@ -222,6 +222,54 @@ Leaflet stays off the critical path: it is imported through `next/dynamic`, and
 a build confirms its 148 kB of JS and 10.6 kB of CSS are referenced by no HTML
 page — the webpack runtime fetches them when the map is opened and not before.
 
+## Checking the rules still refuse things
+
+```bash
+npm run probe-rules
+```
+
+Eleven checks against the **deployed** rules, over the same public config any
+browser has: filing a complaint without signing in, filing one under somebody
+else's account, reading a reporter's private phone number, attaching a file to a
+stranger's complaint, reading the admin applications that carry photographed ID,
+granting yourself admin on a village, writing yourself a superadmin role. Every
+one of them must come back refused.
+
+It asserts only refusals, so a passing run writes nothing and leaves nothing to
+clean up — which is what makes it safe against production, and it should be run
+after every `firebase deploy --only firestore:rules`. The permissions that must
+*work* are proved by the app working.
+
+This is not `firebase emulators:exec`, which would be better and needs Java that
+is not installed here. Rules rewritten this many times without a single test are
+exactly the thing that quietly stops refusing.
+
+## Backups
+
+There is no automatic backup. A village's whole complaint history sits in one
+free-tier database behind one super-admin account, and of everything left on
+this app that is the only problem that cannot be fixed after it matters.
+
+```bash
+node scripts/export-data.mjs --key ./serviceAccount.json
+```
+
+Writes a timestamped folder under `backups/` (gitignored — it holds real
+complaints and real phone numbers). Photos and recordings are skipped by
+default: they are base64 inside the documents and dwarf everything else, and a
+backup nobody runs because it takes twenty minutes is not a backup. `--media`
+includes them, for an archive rather than a safety net.
+
+Run it before anything destructive — `reset-data`, a rules change, a schema
+change — and on a schedule once a real village is using this.
+
+### What the free tier gives you
+
+50k reads and 20k writes a day, and 1 GiB of storage. Storage is what runs out
+first, because photos live in documents: roughly 300 KB per full image means
+about **3,000 photos** before the free tier is gone. Worth knowing as a number
+rather than discovering as an outage.
+
 ## Deploying the Firestore rules
 
 **Pushing to `main` deploys the app, not the rules.** Vercel builds from git;

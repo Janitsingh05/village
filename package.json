@@ -11,7 +11,9 @@
     "logo": "node scripts/logo-assets.mjs",
     "locales": "node scripts/locale-coverage.mjs",
     "reset-data": "node scripts/reset-data.mjs",
-    "pincodes": "node scripts/build-pincodes.mjs"
+    "pincodes": "node scripts/build-pincodes.mjs",
+    "probe-rules": "node scripts/probe-rules.mjs",
+    "export-data": "node scripts/export-data.mjs"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",

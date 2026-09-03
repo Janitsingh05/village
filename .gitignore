@@ -13,3 +13,6 @@ serviceAccount*.json
 # Build output and Firebase CLI cache
 out/
 .firebase/
+
+# Firestore exports — real complaint data, never commit these
+backups/
