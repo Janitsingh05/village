@@ -99,10 +99,24 @@ let noCoords = 0;
 const inLat = (v) => v >= 6 && v <= 38;
 const inLng = (v) => v >= 68 && v <= 98;
 
+/**
+ * India's civilian pincodes run 110000-855999 — the first digit is a postal
+ * region and there is no region 9.
+ *
+ * Outside it the directory carries a literal "TEST OFFICE" at 999999 and the
+ * army's Central Base Post Offices at 9000xx. The test row has no business
+ * appearing to a villager looking up their own pincode, and a field post office
+ * is not a village, which is the only thing this file is used as.
+ */
+const isRealPincode = (pin) => {
+  const n = Number(pin);
+  return n >= 110000 && n <= 855999;
+};
+
 for (const r of rows) {
   const pin = (r.Pincode || '').replace(/\D/g, '');
   const name = cleanName(r.OfficeName || '');
-  if (pin.length !== 6 || !name) {
+  if (pin.length !== 6 || !name || !isRealPincode(pin)) {
     skipped++;
     continue;
   }
@@ -183,7 +197,9 @@ for (const [letter, list] of byLetter) {
 }
 
 const kb = (n) => Math.round(n / 1024) + ' KB';
-console.log(`skipped: ${skipped}  |  lat/lng swapped back: ${swapped}  |  no coords: ${noCoords}`);
+console.log(
+  `skipped: ${skipped} (unusable or outside 110000-855999)  |  lat/lng swapped back: ${swapped}  |  no coords: ${noCoords}`
+);
 console.log(
   `pincode shards: ${shards.size} files, ${kb(total)} total, median ${kb(total / shards.size)}, biggest ${biggestName} at ${kb(biggest)}`
 );

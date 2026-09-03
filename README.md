@@ -194,7 +194,18 @@ No API key, no billing account, and it works with no signal, which is the point:
 Nominatim's rural coverage is patchy in exactly the places this app is for, and
 it cannot answer the question a villager actually knows the answer to.
 
-Build it before deploying — the CSV is not in the repo:
+The shards in `public/pincodes/` were built from the directory as published on
+2020-12-03 — 157,126 rows, of which 3 were dropped (a literal "TEST OFFICE" at
+999999 and two army field post offices at 9000xx, all outside India's civilian
+110000-855999 range) and 2,601 had their latitude and longitude the wrong way
+round and were put back. 10,914 carry no usable fix at all; those rows are kept,
+because the name, district and state are what the form fills in and only the map
+pin needs coordinates.
+
+**They came from a GitHub mirror, not data.gov.in**, which blocks automated
+downloads. The schema and the row count match what data.gov.in documents, but
+rebuild from the official CSV when convenient — it is one command, and it is
+also how you refresh them when India Post reissues the directory:
 
 ```bash
 # data.gov.in -> "All India Pincode Directory" -> CSV
