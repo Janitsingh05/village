@@ -107,7 +107,9 @@
     "draftRestored": "What you typed last time is back. You will need to add the photo again.",
     "errIdentityDisabled": "The app is not fully set up, so this could not be filed. Please tell the Panchayat or the super admin.",
     "errIdentityOffline": "Filing your first complaint needs internet once. What you wrote is saved — try again when you have signal.",
-    "errDenied": "This complaint was not accepted. Try again shortly, or tell the Panchayat."
+    "errDenied": "This complaint was not accepted. Try again shortly, or tell the Panchayat.",
+    "pinOption": "Pick the spot on a map",
+    "pinOptionSub": "Drag the pin to where the problem is"
   },
   "photo": {
     "camera": "Camera",
@@ -554,5 +556,14 @@
     "loading": "Opening the map…",
     "dragHint": "Drag the pin to your spot",
     "unavailable": "The map could not open — use GPS or pick a ward"
+  },
+  "pin": {
+    "tab": "By pincode",
+    "label": "Pincode",
+    "help": "Enter the 6-digit pincode — village, district and state fill in themselves.",
+    "notFound": "That pincode was not found. Please check it.",
+    "pickOne": "{n} places found — pick yours",
+    "noCoords": "no map location",
+    "confirmOnMap": "Drop the pin on the right spot"
   }
 }

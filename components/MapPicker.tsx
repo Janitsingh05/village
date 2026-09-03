@@ -151,7 +151,9 @@ export default function MapPicker({
         </p>
       )}
       {state === 'ready' && (
-        <p className="pointer-events-none absolute left-3 right-3 top-3 z-[1000] flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-700 shadow-card">
+        // Offset past Leaflet's zoom control, which lives at the top left and
+        // was sitting underneath this.
+        <p className="pointer-events-none absolute left-14 right-3 top-3 z-[1000] flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-700 shadow-card">
           <Icon name="pin" className="h-4 w-4 shrink-0 text-brand-700" />
           {t('map.dragHint')}
         </p>

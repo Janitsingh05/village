@@ -3,7 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Icon from '@/components/Icon';
+import dynamic from 'next/dynamic';
 import VillageSearch from '@/components/VillageSearch';
+import PincodePicker from '@/components/PincodePicker';
+import type { PincodePlace } from '@/lib/pincode';
+
+// Kept out of the first-load chunk. Leaflet and its stylesheet only arrive when
+// somebody actually opens the map, which on this screen is after a village has
+// been found.
+const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
 import { createVillage } from '@/lib/villages';
 import { STATES, districtsFor } from '@/lib/india';
 import { useI18n } from '@/lib/i18n';
@@ -30,6 +38,23 @@ export default function NewVillagePage() {
   // depend on a third party knowing about them.
   const [picked, setPicked] = useState<PlaceResult | null>(null);
   const [manual, setManual] = useState(false);
+  // How the village was found: by its pincode, or by searching the map. The
+  // pincode is offered first because it is the one part of their own address a
+  // villager knows without spelling anything, and it settles district and state
+  // at the same time.
+  const [finder, setFinder] = useState<'pincode' | 'map'>('pincode');
+  const [pinPlace, setPinPlace] = useState<PincodePlace | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  function acceptPincode(place: PincodePlace) {
+    setPinPlace(place);
+    setName(place.name);
+    setState(place.state);
+    setDistrict(place.district);
+    // The directory has no fix for some branches. Nothing else changes — the
+    // super admin drops the pin themselves, which they were doing anyway.
+    setCoords(place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null);
+  }
 
   function acceptPlace(place: PlaceResult) {
     setPicked(place);
@@ -44,7 +69,7 @@ export default function NewVillagePage() {
   const canSubmit =
     name.trim().length >= 2 &&
     // Either confirmed on the map, or explicitly entered by hand.
-    (picked !== null || manual) &&
+    (picked !== null || pinPlace !== null || manual) &&
     state !== '' &&
     district.trim() !== '' &&
 
@@ -70,8 +95,12 @@ export default function NewVillagePage() {
         adminName,
         adminRole,
         adminPhone,
-        location: picked ? { lat: picked.lat, lng: picked.lng } : null,
-        mapPlace: picked?.display || '',
+        // Whatever was confirmed last wins: a pin dropped on the map is more
+        // deliberate than a directory centroid.
+        location: coords ?? (picked ? { lat: picked.lat, lng: picked.lng } : null),
+        mapPlace:
+          picked?.display ||
+          (pinPlace ? [pinPlace.name, pinPlace.district, pinPlace.state].filter(Boolean).join(', ') : ''),
       });
       router.push('/super-admin/villages');
     } catch (err) {
@@ -97,15 +126,30 @@ export default function NewVillagePage() {
             the district and the coordinates at once — all of which were
             previously typed on trust. */}
         <div>
-          <p className="label">
-            {t('search.label')} <span className="text-red-500">*</span>
-          </p>
-          <VillageSearch
-            picked={picked}
-            onPick={acceptPlace}
-            onClear={() => setPicked(null)}
-          />
-          {!picked && !manual && (
+          <div className="mb-3 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+            {(['pincode', 'map'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFinder(id)}
+                aria-pressed={finder === id}
+                className={
+                  'rounded-xl px-3 py-2.5 text-sm font-bold transition ' +
+                  (finder === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')
+                }
+              >
+                {t(id === 'pincode' ? 'pin.tab' : 'search.label')}
+              </button>
+            ))}
+          </div>
+
+          {finder === 'pincode' ? (
+            <PincodePicker onPick={acceptPincode} />
+          ) : (
+            <VillageSearch picked={picked} onPick={acceptPlace} onClear={() => setPicked(null)} />
+          )}
+
+          {!picked && !pinPlace && !manual && (
             <button
               type="button"
               onClick={() => setManual(true)}
@@ -115,6 +159,21 @@ export default function NewVillagePage() {
             </button>
           )}
         </div>
+
+        {/* The map confirms rather than finds. A directory centroid is the post
+            office, not the panchayat bhavan, and the difference is the whole
+            reason `location` is trusted on the village record. */}
+        {(pinPlace || coords) && (
+          <div>
+            <p className="label">{t('pin.confirmOnMap')}</p>
+            <MapPicker
+              center={coords ?? { lat: 22.9734, lng: 78.6569 }}
+              value={coords}
+              onChange={setCoords}
+              zoom={coords ? 14 : 5}
+            />
+          </div>
+        )}
 
         <div>
           <label className="label" htmlFor="name">

@@ -16,7 +16,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const SRC = process.argv[2];
-const OUT = process.argv[3] || './public/pincodes';
+const OUT = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : './public/pincodes';
+
+/**
+ * The by-name index is off unless asked for.
+ *
+ * It is 7 MB across India and it serves one screen — national village search on
+ * super-admin onboarding — used by one person on a good connection. That person
+ * can reach the same village through its pincode, and more reliably: India has a
+ * Rampura in most states, so a name search hands them five and a pincode hands
+ * them one. Seven megabytes in the repo and in every deploy is a poor trade for
+ * a worse answer.
+ *
+ * Pass --names to build it anyway; lib/pincode.ts's searchVillages() returns an
+ * empty list when the shards are absent, so nothing breaks either way.
+ */
+const WITH_NAMES = process.argv.includes('--names');
 
 if (!SRC || !fs.existsSync(SRC)) {
   console.error(
@@ -134,13 +149,15 @@ for (const r of rows) {
     lat == null ? [name, di, si] : [name, di, si, Number(lat.toFixed(4)), Number(lng.toFixed(4))]
   );
 
-  const letter = /^[a-z]/i.test(name) ? name[0].toLowerCase() : '_';
-  if (!byLetter.has(letter)) byLetter.set(letter, []);
-  byLetter.get(letter).push([name, pin, district, state]);
+  if (WITH_NAMES) {
+    const letter = /^[a-z]/i.test(name) ? name[0].toLowerCase() : '_';
+    if (!byLetter.has(letter)) byLetter.set(letter, []);
+    byLetter.get(letter).push([name, pin, district, state]);
+  }
 }
 
 fs.rmSync(OUT, { recursive: true, force: true });
-fs.mkdirSync(path.join(OUT, 'names'), { recursive: true });
+fs.mkdirSync(WITH_NAMES ? path.join(OUT, 'names') : OUT, { recursive: true });
 
 let total = 0;
 let biggest = 0;
@@ -170,4 +187,8 @@ console.log(`skipped: ${skipped}  |  lat/lng swapped back: ${swapped}  |  no coo
 console.log(
   `pincode shards: ${shards.size} files, ${kb(total)} total, median ${kb(total / shards.size)}, biggest ${biggestName} at ${kb(biggest)}`
 );
-console.log(`name shards:    ${byLetter.size} files, ${kb(nameTotal)} total, biggest ${kb(nameBiggest)}`);
+console.log(
+  WITH_NAMES
+    ? `name shards:    ${byLetter.size} files, ${kb(nameTotal)} total, biggest ${kb(nameBiggest)}`
+    : 'name index:     skipped (pass --names to build it — see the comment at the top)'
+);

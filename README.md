@@ -185,6 +185,43 @@ What this still is not: a rate limit. Rules cannot count events over time
 without a server. **App Check** is the next thing to turn on; it is free with
 the reCAPTCHA v3 provider and blocks clients that are not this app at all.
 
+## The pincode directory
+
+`lib/pincode.ts` looks a village up from six digits — India Post keeps a branch
+in essentially every village, so the All India Pincode Directory (data.gov.in)
+doubles as a village directory with district, state and coordinates attached.
+No API key, no billing account, and it works with no signal, which is the point:
+Nominatim's rural coverage is patchy in exactly the places this app is for, and
+it cannot answer the question a villager actually knows the answer to.
+
+Build it before deploying — the CSV is not in the repo:
+
+```bash
+# data.gov.in -> "All India Pincode Directory" -> CSV
+npm run pincodes -- ./pincode.csv
+```
+
+That writes ~400 shards to `public/pincodes/`, split by the first three digits
+of the pincode, which is India Post's own sorting district — so a lookup fetches
+one small file and the service worker keeps it.
+
+**The by-name index is off by default.** `--names` builds it, and it is 7 MB for
+one screen used by one person. Pincode lookup reaches the same village more
+reliably anyway: India has a Rampura in most states, so a name search offers
+five and asks which, while a pincode offers the hamlets under one post office.
+`searchVillages()` returns an empty list when the shards are absent, so nothing
+breaks with it off.
+
+Wired into two places. Super-admin onboarding offers pincode or map search, and
+a map to drop the pin on — the directory's coordinate is the post office, not
+the panchayat bhavan. The report form gains the map as a third location mode,
+between GPS and the ward list, because the old embed was an iframe from another
+origin and could never report back where somebody dragged to.
+
+Leaflet stays off the critical path: it is imported through `next/dynamic`, and
+a build confirms its 148 kB of JS and 10.6 kB of CSS are referenced by no HTML
+page — the webpack runtime fetches them when the map is opened and not before.
+
 ## Deploying the Firestore rules
 
 **Pushing to `main` deploys the app, not the rules.** Vercel builds from git;

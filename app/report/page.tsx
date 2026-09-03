@@ -6,7 +6,13 @@ import Link from 'next/link';
 import AppHeader from '@/components/AppHeader';
 import CategoryPicker from '@/components/CategoryPicker';
 import PhotoUpload from '@/components/PhotoUpload';
+import dynamic from 'next/dynamic';
 import DictateButton from '@/components/DictateButton';
+
+// Not in the first-load chunk. Most reporters never open the map — GPS answers
+// in one tap, and the ward list answers when GPS is refused — so Leaflet and its
+// stylesheet arrive only for the ones who do.
+const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
 import Icon from '@/components/Icon';
 import { createComplaint } from '@/lib/complaints';
 import { MAX_PHOTOS, DESC_MAX, wardOptions, isValidPhone } from '@/lib/config';
@@ -25,7 +31,10 @@ export default function ReportPage() {
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
-  const [locMode, setLocMode] = useState<'gps' | 'ward'>('gps');
+  // GPS first because it is one tap and usually right; the map second, for
+  // when GPS is refused or drops the pin on the wrong side of the village; the
+  // ward list last, because it is the coarsest answer of the three.
+  const [locMode, setLocMode] = useState<'gps' | 'pin' | 'ward'>('gps');
   const [ward, setWard] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsState, setGpsState] = useState<'idle' | 'locating' | 'done' | 'denied'>('idle');
@@ -89,7 +98,7 @@ export default function ReportPage() {
   }
 
   const phoneDigits = phone.replace(/\D/g, '');
-  const hasLocation = locMode === 'gps' ? coords != null : ward !== '';
+  const hasLocation = locMode === 'ward' ? ward !== '' : coords != null;
   const canSubmit =
     !!category &&
     description.trim().length >= 5 &&
@@ -111,7 +120,11 @@ export default function ReportPage() {
         ward: ward || (coords ? 'GPS' : ''),
         lat: coords?.lat,
         lng: coords?.lng,
-        address: place?.display,
+        // firestore.rules caps location.address at 200 characters, and a
+        // reverse geocode of a dropped pin can run longer than a GPS fix's —
+        // it names the building, not the village. Trimmed here rather than
+        // discovered as a rejected complaint.
+        address: place?.display?.slice(0, 200),
         reporterName: name.trim() || t('common.anon'),
         reporterPhone: phoneDigits,
       });
@@ -225,6 +238,28 @@ export default function ReportPage() {
                   </button>
                 }
               />
+
+              <LocationOption
+                selected={locMode === 'pin'}
+                onSelect={() => setLocMode('pin')}
+                title={t('report.pinOption')}
+                sub={t('report.pinOptionSub')}
+              />
+
+              {locMode === 'pin' && (
+                <MapPicker
+                  center={coords ?? { lat: 22.9734, lng: 78.6569 }}
+                  value={coords}
+                  zoom={coords ? 16 : 5}
+                  onChange={(at) => {
+                    setCoords(at);
+                    setPlaceBusy(true);
+                    reverseGeocode(at.lat, at.lng, lang)
+                      .then(setPlace)
+                      .finally(() => setPlaceBusy(false));
+                  }}
+                />
+              )}
 
               <LocationOption
                 selected={locMode === 'ward'}
