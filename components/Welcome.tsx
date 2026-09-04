@@ -5,12 +5,14 @@ import Icon from './Icon';
 import Logo from './Logo';
 import { listVillages, rankByProximity, type NearbyVillage } from '@/lib/villages';
 import { reverseGeocode, type Place } from '@/lib/geocode';
+import PincodePicker from './PincodePicker';
+import type { PincodePlace } from '@/lib/pincode';
 import { languageChoicesFor, LANGUAGES, type Lang } from '@/lib/languages';
 import { preloadLanguage, useI18n } from '@/lib/i18n';
 import { setActiveVillage } from '@/lib/tenant';
 import type { Village } from '@/lib/types';
 
-type Step = 'place' | 'village' | 'language';
+type Step = 'place' | 'pincode' | 'village' | 'language';
 
 /** Beyond this a "nearby" village is not nearby, it is just the least far. */
 const NEARBY_KM = 40;
@@ -50,6 +52,28 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
       alive = false;
     };
   }, []);
+
+  /**
+   * A pincode standing in for GPS.
+   *
+   * The directory carries coordinates, so six digits a villager already knows
+   * produce the same thing a satellite fix would — and the ranking below cannot
+   * tell the difference. This is the answer for the two people GPS fails: the
+   * one who refuses the permission, and the one indoors on a phone that never
+   * gets a lock.
+   */
+  function acceptPincode(pincode: PincodePlace) {
+    if (pincode.lat != null && pincode.lng != null) {
+      setAt({ lat: pincode.lat, lng: pincode.lng });
+    }
+    setPlace({
+      place: pincode.name,
+      district: pincode.district,
+      state: pincode.state,
+      display: [pincode.name, pincode.district, pincode.state].filter(Boolean).join(', '),
+    });
+    setStep('village');
+  }
 
   function locate() {
     if (!('geolocation' in navigator)) {
@@ -147,7 +171,32 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
       <Logo variant="full" className="mx-auto h-24 w-24" />
 
       {step === 'place' && (
-        <PlaceStep locating={locating} onLocate={locate} onSkip={() => setStep('village')} />
+        <PlaceStep
+          locating={locating}
+          onLocate={locate}
+          onPincode={() => setStep('pincode')}
+          onSkip={() => setStep('village')}
+        />
+      )}
+
+      {step === 'pincode' && (
+        <div className="mt-8">
+          <h1 className="text-center text-2xl font-extrabold leading-tight text-slate-900">
+            आपका पिनकोड क्या है?
+          </h1>
+          <p className="mt-1 text-center text-lg font-semibold text-slate-500">
+            What is your pincode?
+          </p>
+          <div className="mt-6">
+            <PincodePicker onPick={acceptPincode} autoFocus />
+          </div>
+          <button
+            onClick={() => setStep('place')}
+            className="mt-6 w-full text-center text-sm font-semibold text-slate-500"
+          >
+            ← वापस · Back
+          </button>
+        </div>
       )}
 
       {step === 'village' && (
@@ -184,10 +233,12 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
 function PlaceStep({
   locating,
   onLocate,
+  onPincode,
   onSkip,
 }: {
   locating: boolean;
   onLocate: () => void;
+  onPincode: () => void;
   onSkip: () => void;
 }) {
   return (
@@ -213,6 +264,23 @@ function PlaceStep({
           </span>
           <span className="mt-0.5 block text-sm leading-snug text-brand-100">
             {locating ? 'Finding you…' : 'Use my location'}
+          </span>
+        </span>
+      </button>
+
+      <button
+        onClick={onPincode}
+        className="mt-3 flex w-full items-center gap-4 rounded-3xl border-2 border-slate-200 bg-white p-5 transition active:scale-[0.99]"
+      >
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">
+          <Icon name="doc" className="h-7 w-7" />
+        </span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block text-lg font-bold leading-tight text-slate-800">
+            पिनकोड से ढूँढें
+          </span>
+          <span className="mt-0.5 block text-sm leading-snug text-slate-500">
+            Find by pincode
           </span>
         </span>
       </button>
